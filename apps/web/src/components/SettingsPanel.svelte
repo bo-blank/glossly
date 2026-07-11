@@ -1,9 +1,7 @@
 <!-- components/SettingsPanel.svelte -->
-<script>
+<script lang="ts">
   import { settingsStore } from '../stores/settingsStore';
-  
-  let { provider, model, endpointUrl, apiKey, timeout } = $derived(settingsStore);
-  
+
   function saveSettings() {
     // Save settings locally
     localStorage.setItem('glossly-settings', JSON.stringify($settingsStore));
@@ -15,7 +13,7 @@
   
   <div class="form-group">
     <label>Provider</label>
-    <select bind:value={$settingsStore.provider} onchange={saveSettings}>
+    <select bind:value={$settingsStore.provider} on:change={saveSettings}>
       <option value="anthropic">Anthropic (cloud)</option>
       <option value="ollama">Ollama (local)</option>
       <option value="lmstudio">LM Studio (local)</option>
@@ -25,24 +23,24 @@
   
   <div class="form-group">
     <label>Model</label>
-    <input type="text" bind:value={$settingsStore.model} onchange={saveSettings} />
+    <input type="text" bind:value={$settingsStore.model} on:change={saveSettings} />
   </div>
   
   {#if $settingsStore.provider === 'anthropic'}
     <div class="form-group">
       <label>API Key</label>
-      <input type="password" bind:value={$settingsStore.apiKey} onchange={saveSettings} />
+      <input type="password" bind:value={$settingsStore.apiKey} on:change={saveSettings} />
     </div>
   {/if}
   
   <div class="form-group">
     <label>Endpoint URL</label>
-    <input type="text" bind:value={$settingsStore.endpointUrl} onchange={saveSettings} />
+    <input type="text" bind:value={$settingsStore.endpointUrl} on:change={saveSettings} />
   </div>
   
   <div class="form-group">
     <label>Timeout (ms)</label>
-    <input type="number" bind:value={$settingsStore.timeout} onchange={saveSettings} />
+    <input type="number" bind:value={$settingsStore.timeout} on:change={saveSettings} />
   </div>
 </div>
 

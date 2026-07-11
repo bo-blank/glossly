@@ -1,9 +1,7 @@
 <!-- components/MarginNote.svelte -->
-<script>
+<script lang="ts">
   import { noteStore } from '../stores/noteStore';
-  
-  let { visible, loading, suggestions, error } = $derived(noteStore);
-  
+
   function applySuggestion(suggestion: string) {
     // Implementation for applying suggestion
     // Use editor store to replace selected text
@@ -24,9 +22,12 @@
       <div class="suggestions-container">
         <h3>Alternative Phrasings</h3>
         {#each $noteStore.suggestions as suggestion, index}
-          <button 
+          <div
             class="suggestion-button"
+            role="button"
+            tabindex="0"
             on:click={() => applySuggestion(suggestion)}
+            on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && applySuggestion(suggestion)}
             aria-label={`Apply suggestion ${index + 1}`}
           >
             <div class="suggestion-content">{suggestion}</div>
@@ -35,7 +36,7 @@
               <button class="modifier-chip" data-modifier="vivid">More vivid</button>
               <button class="modifier-chip" data-modifier="plain">Plainer</button>
             </div>
-          </button>
+          </div>
         {/each}
       </div>
     {/if}
