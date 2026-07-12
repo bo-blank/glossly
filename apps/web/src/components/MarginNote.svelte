@@ -1,10 +1,26 @@
 <!-- components/MarginNote.svelte -->
 <script lang="ts">
-  import { noteStore } from '../stores/noteStore';
+  import { noteStore, editorStore } from '../stores/noteStore';
 
   function applySuggestion(suggestion: string) {
-    // Implementation for applying suggestion
-    // Use editor store to replace selected text
+    // Use the editor instance to replace selected text
+    const editor = $editorStore.editor;
+    if (!editor) return;
+    
+    // Get the current selection range
+    const { from, to } = $editorStore.selection;
+    
+    if (from === to) return; // No selection
+    
+    // Create a transaction to replace the selected text with the suggestion
+    // Use the editor's chain method for proper undo support as per §7.3
+    editor.chain()
+      .deleteRange({ from, to })
+      .insertContentAt(from, suggestion)
+      .run();
+    
+    // Update the note store to hide the note
+    noteStore.update(n => ({ ...n, visible: false }));
   }
   
   function dismissNote() {
@@ -13,95 +29,53 @@
 </script>
 
 {#if $noteStore.visible}
-  <div class="margin-note" role="complementary" aria-label="Alternative phrasings">
+  <div
+    class="absolute right-[-200px] bg-base-100 border border-base-300 rounded-xl p-4 shadow-xl w-72 z-[1000] transition-opacity duration-150"
+    role="complementary"
+    aria-label="Alternative phrasings"
+  >
     {#if $noteStore.loading}
-      <div class="loading-state">Loading...</div>
+      <div class="flex items-center gap-2">
+        <span class="loading loading-spinner loading-sm"></span>
+        <span class="text-sm">Loading...</span>
+      </div>
     {:else if $noteStore.error}
-      <div class="error-state" role="alert">{$noteStore.error}</div>
+      <div class="alert alert-error alert-sm text-sm" role="alert">
+        <span>{$noteStore.error}</span>
+      </div>
     {:else}
-      <div class="suggestions-container">
-        <h3>Alternative Phrasings</h3>
+      <div>
+        <h3 class="text-base font-semibold mb-2">Alternative Phrasings</h3>
         {#each $noteStore.suggestions as suggestion, index}
           <div
-            class="suggestion-button"
+            class="card bg-base-100 border border-base-200 rounded-lg p-3 cursor-pointer hover:border-base-400 hover:bg-base-200 transition-all duration-150"
             role="button"
             tabindex="0"
-            on:click={() => applySuggestion(suggestion)}
-            on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && applySuggestion(suggestion)}
+            onclick={() => applySuggestion(suggestion)}
+            onkeydown={(e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                applySuggestion(suggestion);
+              }
+            }}
             aria-label={`Apply suggestion ${index + 1}`}
           >
-            <div class="suggestion-content">{suggestion}</div>
-            <div class="modifier-chips">
-              <button class="modifier-chip" data-modifier="tighter">Tighter</button>
-              <button class="modifier-chip" data-modifier="vivid">More vivid</button>
-              <button class="modifier-chip" data-modifier="plain">Plainer</button>
+            <div class="text-sm mb-2">{suggestion}</div>
+            <div class="flex gap-2">
+              <button class="btn btn-xs btn-ghost btn-outline" data-modifier="tighter">Tighter</button>
+              <button class="btn btn-xs btn-ghost btn-outline" data-modifier="vivid">More vivid</button>
+              <button class="btn btn-xs btn-ghost btn-outline" data-modifier="plain">Plainer</button>
             </div>
           </div>
         {/each}
       </div>
     {/if}
-    <button class="dismiss-button" on:click={dismissNote} aria-label="Dismiss">×</button>
+    <button
+      class="btn btn-ghost btn-xs btn-circle absolute top-2 right-2"
+      onclick={dismissNote}
+      aria-label="Dismiss"
+    >
+      ×
+    </button>
   </div>
 {/if}
-
-<style>
-.margin-note {
-  /* Margin note styling matching spec */
-  position: absolute;
-  right: -200px; /* Positioned in right margin */
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  max-width: 300px;
-  z-index: 1000;
-  transition: opacity 150ms ease;
-}
-
-.suggestion-button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 12px;
-  margin: 8px 0;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
-  transition: all 150ms ease;
-}
-
-.suggestion-button:hover {
-  border-color: #999;
-  background: #f9f9f9;
-}
-
-.modifier-chips {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.modifier-chip {
-  padding: 4px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: #f5f5f5;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.dismiss-button {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 18px;
-  color: #999;
-}
-</style>
