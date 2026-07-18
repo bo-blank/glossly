@@ -2,7 +2,7 @@
 
 *A quiet copilot for writers who already have an ear for sound and structure.*
 
-Working title: **Glossly**. This document is meant to be dropped into a fresh repo as `SPEC.md` and used as the source of truth for the first prototype.
+Working title: **Glossly**. This is the living source-of-truth spec for the product and its architecture.
 
 ---
 
@@ -26,7 +26,7 @@ Writers — fiction, essays, newsletters, literary nonfiction, poetry-adjacent p
 - Have a strong internal sense of rhythm, register, and voice.
 - Want tactical help tightening, varying, or elevating specific words and phrases.
 - Are usually mid-flow when they reach for this, so **latency and interface noise are the enemy**.
-- Skew privacy-conscious and may not want their manuscript going to a third-party cloud API by default — hence the local-LLM requirement (see §6).
+- Skew privacy-conscious and don't want their manuscript sent to any cloud API — hence the local-only requirement (see §6).
 
 ---
 
@@ -40,8 +40,6 @@ Writers — fiction, essays, newsletters, literary nonfiction, poetry-adjacent p
    - Click a modifier chip (**Tighter**, **More vivid**, **Plainer** — extensible) to re-request with a different instruction, without re-selecting.
    - Dismiss with `Esc`, a click outside, or by selecting something else.
 5. No suggestion is ever applied without an explicit click. Nothing is rewritten automatically.
-
-This interaction pattern was already validated in an HTML/JS prototype (contenteditable + margin note UI + live LLM call). See §9 for what to carry forward vs. rebuild properly.
 
 ### Interaction principles
 - **Local, not global.** Suggestions default to word/phrase-level, not full-sentence rewrites, unless the writer explicitly widens the selection or asks for a full rewrite.
@@ -58,8 +56,8 @@ This interaction pattern was already validated in an HTML/JS prototype (contente
 - [ ] Selection → margin note → 3 alternatives
 - [ ] Modifier chips: Tighter, More vivid, Plainer
 - [ ] Click to swap, with undo support
-- [ ] Provider switcher: cloud (Anthropic) vs. local (Ollama / LM Studio / any OpenAI-compatible endpoint)
-- [ ] Settings panel: provider, model, endpoint URL, API key (cloud only), request timeout
+- [ ] Provider switcher: local only (Ollama / LM Studio / any OpenAI-compatible endpoint)
+- [ ] Settings panel: provider, model, endpoint URL, optional API key, request timeout
 - [ ] Local persistence of the document (localStorage or file system, no account/server required)
 
 ### v1.1 (fast follow, not blocking prototype)
@@ -79,8 +77,6 @@ This interaction pattern was already validated in an HTML/JS prototype (contente
 
 ## 5. UX & visual direction
 
-Carried over from the prototype, worth preserving as the design language:
-
 - **Layout:** centered manuscript column (~640px), generous margins, right-hand rail reserved for notes on wide viewports; popover fallback below 900px.
 - **Typography:** literary serif for manuscript body (e.g. Newsreader), plain grotesque sans for UI chrome (e.g. Public Sans). Avoid generic "AI product" defaults (cream + terracotta, near-black + neon accent, broadsheet hairlines) unless deliberately chosen.
 - **Color:** paper background, ink-black text, a single quiet accent color for the note/leader-line (an editorial teal/forest green rather than the ubiquitous orange/terracotta AI-tool accent).
@@ -91,7 +87,7 @@ Carried over from the prototype, worth preserving as the design language:
 
 ## 6. Local LLM requirement — architectural implications
 
-This is a first-class requirement, not an add-on, because the target writer is privacy-conscious about sending unpublished manuscript text to a cloud API by default.
+This is a first-class requirement, not an add-on: the target writer is privacy-conscious about sending unpublished manuscript text to a cloud API, so Glossly is **local-only by design** — there is no cloud provider and no code path that can send document content off-machine (see §6.4).
 
 ### 6.1 Provider abstraction
 
@@ -99,7 +95,7 @@ Define a single interface every provider must implement:
 
 ```ts
 interface LLMProvider {
-  id: string;                 // "anthropic" | "ollama" | "lmstudio" | "openai-compatible"
+  id: string;                 // "ollama" | "lmstudio" | "openai-compatible"
   label: string;              // shown in settings UI
   listModels(): Promise<string[]>;
   getSuggestions(input: SuggestionRequest): Promise<string[]>;
@@ -119,94 +115,67 @@ All providers must:
 - Respect `AbortSignal` so stale requests can be canceled client-side.
 - Fail loudly and specifically (timeout vs. connection refused vs. bad response) so the UI can show a precise, non-alarming error in the note.
 
-### 6.2 Concrete providers for v1
+### 6.2 Concrete providers
 
 | Provider | Transport | Notes |
 |---|---|---|
-| **Anthropic (cloud)** | `POST https://api.anthropic.com/v1/messages` | API key stored locally (never bundled/committed), sent only in the request header from the client or a thin local proxy. |
-| **Ollama (local)** | `POST http://localhost:11434/api/chat` or its OpenAI-compatible `/v1/chat/completions` | Default local option. Note Ollama's CORS defaults — see §6.3. |
-| **LM Studio (local)** | OpenAI-compatible `POST http://localhost:1234/v1/chat/completions` | Same shape as Ollama's compatibility layer — can likely share one `OpenAICompatibleProvider` implementation with a configurable base URL. |
+| **Ollama (local)** | `POST http://localhost:11434/api/chat` or its OpenAI-compatible `/v1/chat/completions` | Default local option. |
+| **LM Studio (local)** | OpenAI-compatible `POST http://localhost:1234/v1/chat/completions` | Same shape as Ollama's compatibility layer. |
 | **Generic OpenAI-compatible (local or self-hosted)** | Configurable base URL + optional key | Covers llama.cpp server, vLLM, LocalAI, etc. without bespoke code. |
 
-Practically, this means **two provider implementations**, not four:
-1. `AnthropicProvider` (native Anthropic Messages API shape)
-2. `OpenAICompatibleProvider` (parameterized by base URL + optional API key) — covers Ollama, LM Studio, llama.cpp server, vLLM, etc.
+One implementation, `OpenAICompatibleProvider` (parameterized by base URL + optional API key), covers all three. The optional API key exists for self-hosted OpenAI-compatible servers that sit behind auth, not for a cloud vendor.
 
 ### 6.3 CORS / local networking
 
-Browsers calling `localhost:11434` directly from a hosted web page will typically get blocked by CORS unless the local server is configured to allow it (Ollama supports `OLLAMA_ORIGINS`, but it's an extra setup step for the user). Two options, worth deciding early:
-
-- **Option A — thin local proxy.** A tiny Node/Express (or equivalent) server that ships with the app, runs on `localhost`, and forwards requests to whichever provider is configured. Solves CORS uniformly, keeps API keys out of client-side JS, and gives you one place to implement request cancellation, retries, and caching.
-- **Option B — desktop shell (Tauri or Electron).** Since network requests from a native shell aren't subject to browser CORS, a local-first desktop app sidesteps the problem entirely and is a more honest fit for a "your manuscript never has to leave your machine" pitch. Tauri is the lighter-weight option (Rust shell, small binary, uses the OS webview) if this product's identity leans further into "local-first, privacy-respecting tool" over time.
-
-**Recommendation for the prototype:** start with **Option A** (web app + local proxy) — fastest to stand up, works in a normal browser, no OS-specific packaging yet. Revisit Option B once the interaction is validated and if "runs fully offline, nothing leaves your machine" becomes a real marketing claim rather than a nice-to-have.
+Browsers calling `localhost:11434` directly from a hosted web page get blocked by CORS unless the local server is configured to allow it. Glossly ships a thin Node/Express local proxy (`apps/server`) that the browser talks to instead of the LLM endpoint directly — this solves CORS uniformly and gives one place to implement cancellation, retries, and timeouts. A native desktop shell (Tauri/Electron) would sidestep CORS entirely and is worth revisiting if "runs fully offline, nothing leaves your machine" becomes a marketing claim rather than an implementation detail (see §10).
 
 ### 6.4 Privacy default
 
-When a local provider is selected, the app should make **zero network calls outside localhost** — no analytics, no telemetry, no update checks that include document content. This should be true by construction (no code path exists to send manuscript text elsewhere when local mode is active), not just a policy.
+The app should make **zero network calls outside localhost** — no analytics, no telemetry, no update checks that include document content. This should be true by construction (no code path exists to send manuscript text anywhere but the configured local endpoint), not just a policy.
 
 ---
 
-## 7. Technical architecture (prototype)
+## 7. Technical architecture
 
-### 7.1 Stack recommendation
+### 7.1 Stack
 
-- **Frontend:** Vite + Svelte + TypeScript. Chosen over React for this scope: Svelte compiles away at build time (no framework runtime shipped to the browser), which fits the "minimal, fast" positioning at the architecture level, not just the UI level — smaller bundle, faster boot, and it dovetails with the local-first/privacy angle in §6.
-- **Editor:** [Tiptap](https://tiptap.dev) (ProseMirror-based), using its official Svelte bindings. Decided over Quill (see §7.1a for the tradeoff that was weighed) — do **not** carry forward raw `contenteditable` + manual DOM `Range` manipulation from the earlier demo; Tiptap gives a real document model the demo didn't have.
-- **State:** Svelte's built-in stores (`writable`/`derived`) are enough for v1 — no need for an external state library. Fine-grained reactivity means updating the note's suggestion list doesn't need to touch the manuscript component, which maps cleanly onto the request lifecycle in §7.4.
-- **Local proxy backend:** Node + Express (or Fastify), single `/api/suggest` endpoint that takes `{ provider, model, selectedText, context, modifier }` and dispatches to the configured `LLMProvider`.
-- **Persistence:** Browser `localStorage` (or IndexedDB if documents get large) for the prototype. No account system, no server-side storage.
-- **Styling:** Plain CSS with custom properties (as in the earlier prototype) or Tailwind if the team prefers utility classes — either is fine, but keep the token system (paper/ink/accent/rule from §5) centralized in one place regardless.
+- **Frontend:** Vite + Svelte + TypeScript.
+- **Editor:** [Tiptap](https://tiptap.dev) (ProseMirror-based), via its official Svelte bindings — gives a real document model with position mapping (`Mapping`) and view-only decorations, both needed for async suggestion resolution and the ephemeral swap-highlight effect.
+- **State:** Svelte's built-in stores (`writable`/`derived`).
+- **Local proxy backend:** Node + Express, `/api/suggest` (and `/api/ai-likeness`, `/api/models`) dispatching to the configured `LLMProvider`.
+- **Persistence:** Browser `localStorage`. No account system, no server-side storage.
+- **Styling:** Plain CSS with custom properties, keeping the token system (paper/ink/accent/rule from §5) centralized.
 
-### 7.1a Editor choice: why Tiptap over Quill
-
-Both are open, inspectable, MIT-licensed document formats — "open format" wasn't the deciding factor. **Decision: Tiptap/ProseMirror.** The tradeoff that was weighed, kept here for context on *why*:
-
-| | **Quill** (not chosen) | **Tiptap / ProseMirror** (chosen) |
-|---|---|---|
-| Model | Delta (`insert`/`retain`/`delete`) | Document schema + transactions |
-| Position tracking after remote edits | Possible — transform a stored range through the intervening Delta ops — but you write that logic yourself | Built in: `Mapping` lets you save a position and later ask where it maps to after everything that happened since |
-| Temporary highlight (view-only, not saved) | Not first-class — either becomes a real Delta op you must remember to clean up, or you fake it with absolutely-positioned DOM overlays synced to `getBounds()` | First-class: decorations are render-only, invisible to the document model, trivial to add/remove |
-| Undo/redo | Built in, works on Deltas | Built in, collapses a range-replace into a single transaction naturally |
-| Bundle size / setup complexity | Smaller, simpler for v1's narrow scope | More machinery than this scope strictly needs on day one — accepted as the tradeoff for the two mechanics above |
-
-The two mechanics that tipped it: **async position resolution** (a suggestion request goes out, the writer keeps typing elsewhere, the response lands 1–2 seconds later — need to resolve "where is that original selection *now*") and **ephemeral, non-content highlighting** (the "swapped text glows then fades" effect shouldn't become part of the actual document content). ProseMirror gives both for free via `Mapping` and decorations; Quill would need both hand-rolled. Given v1.1 is already expected to want richer margin-note UI (custom modifier chips, possibly multiple simultaneous notes), that plumbing is worth having from day one rather than retrofitting later.
-
-### 7.2 Repo structure (suggested)
+### 7.2 Repo structure (current)
 
 ```
 glossly/
-├── SPEC.md                    ← this file
 ├── README.md
-├── package.json                ← workspace root (if using a monorepo tool) or single app
+├── package.json                 ← workspace root
 ├── apps/
-│   ├── web/                    ← Vite + Svelte + TS frontend
-│   │   ├── src/
-│   │   │   ├── editor/         ← Tiptap setup, extensions, the manuscript component
-│   │   │   ├── note/           ← the margin-note component, modifier chips, positioning logic
-│   │   │   ├── providers/      ← client-side calls to the local proxy (not directly to LLMs)
-│   │   │   ├── settings/       ← provider/model/key configuration UI
-│   │   │   └── App.svelte
-│   │   └── vite.config.ts
-│   └── server/                 ← thin local proxy
-│       ├── src/
-│       │   ├── providers/
-│       │   │   ├── anthropic.ts
-│       │   │   ├── openaiCompatible.ts
-│       │   │   └── types.ts    ← LLMProvider / SuggestionRequest interfaces
-│       │   ├── routes/
-│       │   │   └── suggest.ts
-│       │   └── index.ts
-│       └── package.json
-└── .env.example                 ← ANTHROPIC_API_KEY=, LOCAL_LLM_BASE_URL=, etc.
+│   ├── web/                     ← Vite + Svelte + TS frontend
+│   │   └── src/
+│   │       ├── components/      ← Editor, MarginNote, SettingsPanel, Dashboard, TableOfContents, App.svelte
+│   │       ├── note/            ← margin-note request logic, word-boundary snapping
+│   │       ├── dashboard/       ← AI-likeness request logic
+│   │       ├── providers/       ← client-side calls to the local proxy (not directly to LLMs)
+│   │       ├── stores/          ← settings, note, dashboard, table-of-contents state
+│   │       ├── utils/           ← readability scoring
+│   │       └── main.ts
+│   └── server/                  ← thin local proxy
+│       └── src/
+│           ├── providers/       ← openaiCompatible.ts, prompt.ts, types.ts (LLMProvider contract)
+│           ├── routes/          ← suggest.ts, aiLikeness.ts, models.ts
+│           └── index.ts
+└── .env.example                  ← LOCAL_LLM_BASE_URL=, etc.
 ```
 
 ### 7.3 Replace-in-place & undo
 
-Since suggestions replace a specific range of text, and native undo needs to work, **never keep the selection as a raw DOM `Range`** — it goes stale the moment the document changes, which will bite you the first time two suggestions land close together. Instead:
+Since suggestions replace a specific range of text, and native undo needs to work, **never keep the selection as a raw DOM `Range`** — it goes stale the moment the document changes. Instead:
 
 - Apply the replacement as a single transaction (`chain().insertContentAt(range, text).run()` or equivalent) so it collapses into one undo step, not a delete + insert pair.
-- Store the range as a ProseMirror position and remap it through any transactions that land before the response arrives (this is exactly the `Mapping` mechanic referenced in §7.1a).
+- Store the range as a ProseMirror position and remap it through any transactions that land before the response arrives (ProseMirror's `Mapping`).
 
 ### 7.4 Request lifecycle
 
@@ -221,39 +190,42 @@ Since suggestions replace a specific range of text, and native undo needs to wor
 ## 8. Non-functional requirements
 
 - **Perceived latency:** loading state must appear within one frame of selection settling; no spinner-free dead air.
-- **Cancellation:** a new selection must cancel in-flight requests within one tick — never let a stale response overwrite a newer note (this was a real bug class in the earlier prototype and needs an explicit request-token or `AbortController` guard).
+- **Cancellation:** a new selection must cancel in-flight requests within one tick — never let a stale response overwrite a newer note.
 - **Token budget:** cap context sent to the model (e.g. current paragraph + one before/after, or a hard character ceiling) — full-document context is unnecessary for phrase-level suggestions and directly hurts latency and cost.
-- **Local-mode privacy:** no network calls outside `localhost` when a local provider is active (see §6.4).
+- **Privacy:** no network calls outside `localhost`, ever (see §6.4).
 - **Accessibility:** visible keyboard focus throughout; note should be reachable and dismissible via keyboard, not just mouse (can be v1.1 if needed, but don't architect it out).
 
 ---
 
-## 9. What to carry forward from the existing prototype
+## 8a. Tiptap functionality-extension roadmap
 
-The earlier HTML/JS demo already validated:
-- The margin-note visual language (leader line, quiet card, modifier chips) — reuse the token system (`--paper`, `--ink`, `--accent`, `--rule`, etc.) as the starting point for the real design system.
-- The core request shape (context + selected text + instruction → JSON array of 3 strings) — reuse the prompt pattern, just move the call behind the local proxy and the provider abstraction instead of calling Anthropic directly from the browser.
+Ranked by how directly each one serves Glossly's actual product — the selection-driven margin-note loop, undo-safe swaps, and a distraction-light manuscript editor — not by general popularity. Cloud-only extensions (AI Generation/Toolkit, Collaboration, Comments, Export/Import, Pages, Snapshot, Tracked Changes) are excluded — Tiptap Cloud paid features, orthogonal to Glossly's local-first, single-user model.
 
-What **not** to carry forward as-is:
-- Raw `contenteditable` + manual DOM `Range` manipulation — replace with Tiptap/ProseMirror (see §7.1a for why) for anything beyond a throwaway demo, per §7.3.
-- Calling the Anthropic API directly from client-side JS — move behind the local proxy so API keys aren't exposed and so local-provider requests can be handled uniformly.
+**Tier 1 — implemented:** UndoRedo (History, via StarterKit), Selection (keeps the range visually marked once focus moves to the margin note), Placeholder (empty-document voice per §5), CharacterCount (document word/char footer stat).
 
----
+**Tier 2 — real value, not yet scheduled:**
 
-## 10. Open decisions (flag before/while building)
+1. **Typography** — smart quotes/dashes/ellipses, matching the "quiet copilot" voice better than raw ASCII punctuation.
+2. **UniqueID** — stable per-node IDs, hardening position mapping beyond raw ProseMirror positions.
+3. **TrailingNode / Gapcursor / Dropcursor** — prevents the cursor getting stuck before/after the `Image` node; Gapcursor/Dropcursor likely already ride along with `StarterKit` and just need confirming.
+4. **FileHandler** — drag-and-drop / paste-to-upload images, upgrading the current click-only image input.
 
-1. **Desktop shell now or later?** Web + local proxy (Option A, §6.3) vs. Tauri/Electron from day one. Recommendation above: start web, revisit if "fully offline" becomes core to the pitch.
-2. **Modifier chips: fixed set or user-defined?** v1 ships fixed (Tighter/Vivid/Plainer); custom chips are a natural v1.1 but touch the prompt-construction layer, worth designing the interface for now even if not exposed in the UI yet.
-3. **Full-sentence rewrite trigger.** Decide the gesture (long-press? separate button? wider selection = automatic escalation?) before it's needed, so the note UI doesn't need a redesign to fit it in later.
-4. **Caching strategy.** In-memory only (per session) vs. persisted (per document) — affects how "instant" repeated hovers over the same phrase feel.
-5. **Model defaults per provider.** e.g. Anthropic → Sonnet-tier by default (favor quality over the cheapest/fastest tier, since suggestion quality is the whole product); local → whatever the user has pulled, but worth a sensible default recommendation in the settings UI (e.g. "works best with 7B+ instruction-tuned models").
+**Tier 3 — not planned:** BubbleMenu/FloatingMenu (reworking the hand-rolled toolbar for marginal gain), PasteHandler (markdown-paste convenience), Font/Color/TextStyle knobs (rich-formatting suited to general documents, not long-form prose — `Color`/`TextStyle` are imported but unexposed, candidates for pruning), ListKit/ListKeymap (marginal over `StarterKit` + `TaskList`), TableKit (manuscripts rarely need tables), InvisibleCharacters (debugging aid, not prose composition).
 
 ---
 
-## 11. Definition of done for the prototype
+## 9. Open decisions (flag before/while building)
+
+1. **Desktop shell now or later?** Web + local proxy vs. Tauri/Electron. Current: web + proxy. Revisit if "fully offline, nothing leaves your machine" becomes a marketing claim rather than an implementation detail (§6.3).
+2. **Full-sentence rewrite trigger.** Decide the gesture (long-press? separate button? wider selection = automatic escalation?) before it's needed, so the note UI doesn't need a redesign to fit it in later.
+3. **Caching strategy.** In-memory only (per session) vs. persisted (per document) — affects how "instant" repeated hovers over the same phrase feel.
+
+---
+
+## 10. Definition of done for the prototype
 
 - [ ] Can open the app, type/paste a paragraph, select a phrase, and get 3 real suggestions within a couple seconds.
-- [ ] Works against at least one local provider (Ollama, via the proxy) and the Anthropic cloud provider, switchable in settings without a rebuild.
+- [ ] Works against at least one local provider (Ollama, via the proxy), switchable to LM Studio/generic OpenAI-compatible in settings without a rebuild.
 - [ ] Swapping a suggestion in is a single, undoable action.
 - [ ] Selecting a new phrase while a request is in flight never results in the wrong suggestions appearing.
-- [ ] No network call leaves the machine when a local provider is selected.
+- [ ] No network call ever leaves the machine.

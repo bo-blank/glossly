@@ -10,26 +10,31 @@ Glossly is a privacy-first writing assistant that provides alternative phrasings
 
 - **Tactical phrase suggestions** - 3 alternatives for selected text (3-220 characters)
 - **Modifier system** - Tighter, More vivid, Plainer options
-- **Local-first architecture** - Zero network calls outside localhost when using local LLMs
+- **Rich manuscript editor** - headings, lists, blockquotes, code blocks, images, links, highlights, text alignment
+- **Table of contents** - clickable heading navigation
+- **Writing dashboard** - word/character count, reading time, Flesch readability scoring, on-demand AI-likeness detection
+- **Local-first architecture** - Zero network calls outside localhost, ever
 - **Undo support** - Native undo/redo for suggestion swaps
-- **Privacy-focused** - API keys stay local, manuscript never leaves your machine by default
+- **Privacy-focused** - manuscript and API keys never leave your machine
 
 ## Technology Stack
 
-- **Frontend:** Vite + Svelte 4 + TypeScript
-- **Editor:** Tiptap (ProseMirror-based)
+- **Frontend:** Vite + Svelte 5 + TypeScript
+- **Editor:** Tiptap 3 (ProseMirror-based)
 - **State Management:** Svelte stores and reactive programming
 - **Backend:** Node.js + Express (local proxy)
-- **LLM Providers:** Anthropic (cloud), Ollama, LM Studio, OpenAI-compatible
+- **LLM Providers:** Ollama, LM Studio, any OpenAI-compatible endpoint (local only)
 
 ## Architecture
 
 ### Components
 
-- **Editor** - Manuscript with paragraphs, bold, italic formatting
+- **Editor** - manuscript editing surface with rich formatting toolbar
 - **MarginNote** - Alternative phrasings UI with leader line
+- **TableOfContents** - heading navigation rail
+- **Dashboard** - readability stats and AI-likeness detector
 - **SettingsPanel** - Provider and model configuration
-- **Local Proxy** - CORS-safe forwarding to LLM providers
+- **Local Proxy** (`apps/server`) - CORS-safe forwarding to LLM providers
 
 ### Data Flow
 
@@ -51,23 +56,17 @@ Glossly is a privacy-first writing assistant that provides alternative phrasings
 git clone https://github.com/your-repo/glossly.git
 cd glossly
 
-# Install frontend dependencies
-cd apps/web
-npm install  # or yarn, pnpm
+npm install                     # root: dev orchestration tooling
+npm install --prefix apps/web
+npm install --prefix apps/server
 
-# Install backend dependencies  
-cd ../server
-npm install
+cp .env.example apps/server/.env
 ```
 
 ### Running Development
 
 ```bash
-# Start development server
-npm run dev
-
-# Backend proxy (in another terminal)
-cd ../server
+# Starts the local proxy (:3000) and the web app (:5173) together
 npm run dev
 ```
 
@@ -82,21 +81,22 @@ npm run build
 
 ### v1 (Current Prototype)
 
-- ✅ Plain-text editor with basic formatting
+- ✅ Rich-formatted editor (headings, lists, images, links, and more)
 - ✅ Selection → margin note → 3 suggestions
 - ✅ Modifier chips: Tighter, More vivid, Plainer
 - ✅ Click to swap with undo support
-- ✅ Provider switcher (cloud vs local)
+- ✅ Local provider switcher (Ollama / LM Studio / OpenAI-compatible)
 - ✅ Settings panel configuration
 - ✅ Local document persistence
+- ✅ Table of contents, readability dashboard, AI-likeness detector (beyond the original v1 spec)
 
-### v1.1 (Planned Enhancements)
+### v1.1 (Not yet implemented)
 
-- ✅ Full-sentence rewrite mode (opt-in)
-- ✅ Custom modifier chips
-- ✅ Response caching
-- ✅ Streaming suggestions
-- ✅ Keyboard-only flow
+- ⬜ Full-sentence rewrite mode (opt-in)
+- ⬜ Custom modifier chips
+- ⬜ Response caching
+- ⬜ Streaming suggestions
+- ⬜ Keyboard-only flow
 
 ## Local LLM Setup
 
@@ -120,10 +120,6 @@ Any server supporting OpenAI-compatible API (llama.cpp, vLLM, LocalAI, etc.)
 
 ## Provider Configuration
 
-### Cloud (Anthropic)
-- Requires API key (stored locally)
-- API calls go directly to Anthropic
-
 ### Local Options
 - **Ollama** - Fastest setup, runs locally
 - **LM Studio** - GUI-based model management
@@ -142,24 +138,19 @@ Any server supporting OpenAI-compatible API (llama.cpp, vLLM, LocalAI, etc.)
 ### Scripts
 
 ```bash
-# Start development server
+# Root: run proxy + web app together
 npm run dev
-
-# Build for production
 npm run build
+npm run lint            # lints apps/server
 
-# Lint TypeScript
-npm run lint
-
-# Preview production build
-npm run preview
+# apps/web only
+npm run preview --prefix apps/web   # preview production build
+npm run format --prefix apps/web    # prettier
 ```
 
 ### Testing
 
-- Component testing with Vitest
-- End-to-end testing with Playwright (planned)
-- Local LLM integration testing
+No automated test suite exists yet — verification is manual against a running local LLM provider.
 
 ## Privacy
 
@@ -171,31 +162,7 @@ When a local provider is selected:
 - ✅ Manuscript never leaves your machine
 - ✅ API keys stay local
 
-### Cloud Mode
-
-- ✅ API keys stored locally in `.env`
-- ✅ Never bundled or committed to version control
-- ✅ Only sent when explicitly requested
-
-## Architecture Details
-
-### Why Tiptap?
-
-Tiptap was chosen over Quill for:
-
-- **Position mapping** - Handles async suggestions correctly
-- **Decorations** - View-only highlight effects (not saved to document)
-- **Undo support** - Native transaction handling
-- **Future extensibility** - Ready for v1.1 features
-
-### Why Svelte?
-
-Svelte provides:
-
-- **Compiled away at build time** - No runtime overhead
-- **Better TypeScript integration** - Native Svelte components
-- **Reactive programming** - Perfect for tracking selection changes
-- **Smaller bundle size** - Important for writing tools performance
+See `docs/specification/specs.md` for the architecture decisions and rationale behind the stack choices.
 
 ## Contributing
 

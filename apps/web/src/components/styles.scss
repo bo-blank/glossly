@@ -3,13 +3,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  flex-wrap: wrap;
+  row-gap: 6px;
 }
 
 .toolbar-group {
@@ -38,7 +33,7 @@
   color: inherit;
   min-height: 300px;
   border: 1px solid var(--gray-2);
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   padding: 1rem 1.5rem;
   outline: none;
 
@@ -154,5 +149,19 @@
     border: none;
     border-top: 1px solid var(--gray-2);
     margin: 2rem 0;
+  }
+
+  /* Placeholder (first line only, when the doc is empty) */
+  p.is-editor-empty:first-child::before {
+    color: var(--gray-4);
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+
+  /* Preserve the selection highlight when focus moves to the margin note */
+  .selection {
+    background-color: var(--purple-light);
   }
 }

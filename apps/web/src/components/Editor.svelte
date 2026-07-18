@@ -9,9 +9,19 @@
   import { Subscript } from '@tiptap/extension-subscript';
   import { Superscript } from '@tiptap/extension-superscript';
   import { Image } from '@tiptap/extension-image';
+  import { Placeholder, Selection, CharacterCount } from '@tiptap/extensions';
+  import { TableOfContents, getHierarchicalIndexes } from '@tiptap/extension-table-of-contents';
   import StarterKit from '@tiptap/starter-kit';
   import { Editor } from '@tiptap/core';
   import { onMount } from 'svelte';
+  import { editorStore } from '../stores/noteStore';
+  import { tocStore } from '../stores/tocStore';
+  import { dashboardStore } from '../stores/dashboardStore';
+  import { onSelectionChange } from '../note/requestSuggestions';
+  import { computeReadability } from '../utils/readability';
+
+  const DOC_STORAGE_KEY = 'glossly-document';
+  const CONTEXT_CHAR_BUDGET = 2000;
 
   // oxlint-disable-next-line
   let element;
@@ -132,28 +142,88 @@
     return () => document.removeEventListener('click', handleClick);
   });
 
+  function extractContext(doc, from) {
+    const blocks = [];
+    let currentIndex = -1;
+    let i = 0;
+    doc.forEach((node, offset) => {
+      if (from >= offset && from <= offset + node.nodeSize) currentIndex = i;
+      blocks.push(node);
+      i++;
+    });
+
+    const parts = [];
+    for (let idx = Math.max(0, currentIndex - 1); idx <= Math.min(blocks.length - 1, currentIndex + 1); idx++) {
+      const text = blocks[idx]?.textContent?.trim();
+      if (text) parts.push(text);
+    }
+    return parts.join('\n\n').slice(0, CONTEXT_CHAR_BUDGET);
+  }
+
+  function handleSelectionUpdate(ed) {
+    const { from, to, empty } = ed.state.selection;
+    editorStore.set({ editor: ed, selection: { from, to }, document: ed.getHTML() });
+
+    if (empty) {
+      onSelectionChange(null);
+      return;
+    }
+
+    const selectedText = ed.state.doc.textBetween(from, to, '\n');
+    const context = extractContext(ed.state.doc, from);
+
+    let screenPos = null;
+    try {
+      const coords = ed.view.coordsAtPos(to);
+      const NOTE_WIDTH = 288;
+      const NOTE_MAX_HEIGHT = 400;
+      const MARGIN = 16;
+      const left = Math.min(coords.right + 24, window.innerWidth - NOTE_WIDTH - MARGIN);
+      const top = Math.min(coords.bottom, window.innerHeight - NOTE_MAX_HEIGHT - MARGIN);
+      screenPos = { left: Math.max(MARGIN, left), bottom: Math.max(MARGIN, top) };
+    } catch {
+      screenPos = null;
+    }
+
+    onSelectionChange({ selectedText, context, from, to, screenPos });
+  }
+
+  let autosaveTimer;
+  function scheduleAutosave(ed) {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => {
+      localStorage.setItem(DOC_STORAGE_KEY, ed.getHTML());
+    }, 500);
+  }
+
+  function publishDashboardStats(ed) {
+    dashboardStore.set(
+      computeReadability(ed.getText(), {
+        words: ed.storage.characterCount.words(),
+        characters: ed.storage.characterCount.characters()
+      })
+    );
+  }
+
+  // `editor = editor` doesn't bump Svelte 5's reactivity for an unchanged object
+  // reference, so the word count needs its own version counter to know when to recompute.
+  let docVersion = $state(0);
+  let wordCount = $derived.by(() => {
+    docVersion;
+    return editor?.storage.characterCount.words() ?? 0;
+  });
+  let charCount = $derived.by(() => {
+    docVersion;
+    return editor?.storage.characterCount.characters() ?? 0;
+  });
+
   function btnClass(isActive, isDisabled) {
     if (isDisabled) return 'btn btn-disabled btn-ghost btn-sm btn-square';
     if (isActive) return 'btn btn-primary btn-sm btn-square';
     return 'btn btn-ghost btn-sm btn-square';
   }
 
-  onMount(() => {
-    editor = new Editor({
-      element: element,
-      extensions: [
-        Color.configure({ types: [TextStyle.name, ListItem.name] }),
-        TextStyle.configure({ types: [ListItem.name] }),
-        StarterKit,
-        Highlight.configure({ multicolor: true }),
-        TextAlign.configure({ types: ['heading', 'paragraph'] }),
-        TaskList,
-        TaskItem.configure({ nested: true }),
-        Subscript,
-        Superscript,
-        Image,
-      ],
-      content: `
+  const DEFAULT_CONTENT = `
             <h2>
               Hi there,
             </h2>
@@ -182,13 +252,47 @@
               <br />
               — Mom
             </blockquote>
-          `,
+          `;
+
+  onMount(() => {
+    const savedContent = localStorage.getItem(DOC_STORAGE_KEY);
+
+    editor = new Editor({
+      element: element,
+      extensions: [
+        Color.configure({ types: [TextStyle.name, ListItem.name] }),
+        TextStyle.configure({ types: [ListItem.name] }),
+        StarterKit,
+        Highlight.configure({ multicolor: true }),
+        TextAlign.configure({ types: ['heading', 'paragraph'] }),
+        TaskList,
+        TaskItem.configure({ nested: true }),
+        Subscript,
+        Superscript,
+        Image,
+        Placeholder.configure({ placeholder: 'Start writing…' }),
+        Selection,
+        CharacterCount,
+        TableOfContents.configure({
+          getIndex: getHierarchicalIndexes,
+          onUpdate: (content) => tocStore.set(content),
+        }),
+      ],
+      content: savedContent || DEFAULT_CONTENT,
       onTransaction: () => {
         // force re-render so `editor.isActive` works as expected
         // oxlint-disable-next-line no-self-assign
         editor = editor;
       },
+      onSelectionUpdate: ({ editor: ed }) => handleSelectionUpdate(ed),
+      onUpdate: ({ editor: ed }) => {
+        docVersion++;
+        scheduleAutosave(ed);
+        publishDashboardStats(ed);
+      },
     });
+
+    publishDashboardStats(editor);
   });
 </script>
 
@@ -448,7 +552,7 @@
       <div class="toolbar-divider"></div>
 
       <!-- Image upload -->
-      <div class="toolbar-group ml-auto">
+      <div class="toolbar-group">
         <button
           onclick={triggerImageUpload}
           class="btn btn-ghost btn-sm btn-square"
@@ -468,4 +572,9 @@
     </div>
   </div>
 {/if}
-<div bind:this={element} class="min-h-[400px] p-4"></div>
+<div bind:this={element} class="min-h-[400px]"></div>
+{#if editor}
+  <div class="word-count px-4 pb-2 text-xs opacity-60">
+    {wordCount} words · {charCount} characters
+  </div>
+{/if}
