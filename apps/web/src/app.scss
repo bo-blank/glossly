@@ -13,6 +13,23 @@
   --purple-light: rgba(88, 5, 255, 0.05);
   --readability-standard: rgba(234, 179, 8, 0.14);
   --readability-hard: rgba(239, 68, 68, 0.16);
+  /* Fixed regardless of theme — the code block stays a terminal-style dark
+     island on both light and dark pages, so it can't reuse the ink tokens
+     above once those start flipping per theme. */
+  --code-bg: #2e2b29;
+  --code-fg: #fff;
+}
+
+:root[data-theme='dark'] {
+  --black: #e8e6e3;
+  --gray-1: rgba(255, 255, 255, 0.06);
+  --gray-2: rgba(255, 255, 255, 0.12);
+  --gray-3: rgba(255, 255, 255, 0.18);
+  --gray-4: rgba(255, 255, 255, 0.35);
+  --gray-5: rgba(255, 255, 255, 0.6);
+  --purple-light: rgba(168, 119, 255, 0.16);
+  --readability-standard: rgba(234, 179, 8, 0.28);
+  --readability-hard: rgba(239, 68, 68, 0.32);
 }
 
 *,
