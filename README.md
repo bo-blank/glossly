@@ -90,11 +90,14 @@ npm run build
 
 ### v1.1 (Not yet implemented)
 
-- ⬜ Full-sentence rewrite mode (opt-in)
-- ⬜ Custom modifier chips
-- ⬜ Response caching
 - ⬜ Streaming suggestions
+- ⬜ Response caching
+- ⬜ Custom modifier chips
 - ⬜ Keyboard-only flow
+- ⬜ Dark mode
+- ⬜ Full-sentence rewrite mode (opt-in)
+
+See `docs/next-iteration-features.md` for the full roadmap (v1.2 and beyond).
 
 ## Local LLM Setup
 
