@@ -43,7 +43,31 @@
       dismiss();
     };
     const handleKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && $noteStore.visible) dismiss();
+      if (!$noteStore.visible) return;
+      if (e.key === 'Escape') {
+        dismiss();
+        return;
+      }
+
+      // Alt-combinations only — the writer is typing prose, so unmodified digits/letters
+      // must never be intercepted. e.code (not e.key) is used because e.key with Alt held
+      // produces layout-dependent characters, especially on macOS.
+      if (!e.altKey || $noteStore.loading || $noteStore.suggestions.length === 0) return;
+
+      const digitMatch = e.code.match(/^Digit([1-3])$/);
+      if (digitMatch) {
+        const suggestion = $noteStore.suggestions[Number(digitMatch[1]) - 1];
+        if (suggestion) {
+          e.preventDefault();
+          applySuggestion(suggestion);
+        }
+        return;
+      }
+
+      if (e.code === 'KeyN') {
+        e.preventDefault();
+        requestWithModifier('more');
+      }
     };
     document.addEventListener('click', handleClick);
     document.addEventListener('keydown', handleKeydown);
@@ -101,6 +125,7 @@
             {/each}
             <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('more')}>New suggestions</button>
           </div>
+          <div class="text-xs opacity-60 mt-2">Alt+1–3 apply · Alt+N new · Esc dismiss</div>
         {/if}
       </div>
     {/if}
