@@ -3,6 +3,7 @@ import { noteStore, editorStore } from '../stores/noteStore';
 import { settingsStore } from '../stores/settingsStore';
 import { fetchSuggestionsStream, SuggestRequestError } from '../providers/client';
 import { snapToWordBoundaries } from './wordBoundary';
+import { cacheKey, get as cacheGet, set as cacheSet } from './suggestionCache';
 
 const DEBOUNCE_MS = 200;
 
@@ -85,6 +86,30 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined) {
 
   const previousSuggestions = modifier === 'more' && seenSuggestions.length ? [...seenSuggestions] : undefined;
 
+  const settings = get(settingsStore);
+  // "New suggestions" is exempt from caching too — its whole purpose is fresh output.
+  const cKey =
+    modifier !== 'more'
+      ? cacheKey({ selectedText: info.selectedText, context: info.context, modifier, model: settings.model, endpointUrl: settings.endpointUrl })
+      : undefined;
+
+  if (cKey) {
+    const cached = cacheGet(cKey);
+    if (cached) {
+      activeController?.abort();
+      activeController = undefined;
+      seenSuggestions.push(...cached.filter((s) => !seenSuggestions.includes(s)));
+      noteStore.set({
+        visible: true,
+        loading: false,
+        suggestions: cached,
+        error: null,
+        position: info.screenPos ? { x: info.screenPos.left, y: info.screenPos.bottom } : null
+      });
+      return;
+    }
+  }
+
   activeController?.abort();
   const controller = new AbortController();
   activeController = controller;
@@ -98,7 +123,6 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined) {
   });
 
   try {
-    const settings = get(settingsStore);
     const suggestions = await fetchSuggestionsStream({
       settings,
       selectedText: info.selectedText,
@@ -114,6 +138,7 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined) {
 
     if (controller.signal.aborted) return;
     seenSuggestions.push(...suggestions.filter((s) => !seenSuggestions.includes(s)));
+    if (cKey) cacheSet(cKey, suggestions);
     noteStore.update((n) => ({ ...n, loading: false, suggestions, error: null }));
   } catch (err) {
     if (controller.signal.aborted) return; // superseded by a newer selection — discard silently
