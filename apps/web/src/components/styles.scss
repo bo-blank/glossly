@@ -164,4 +164,13 @@
   .selection {
     background-color: var(--purple-light);
   }
+
+  /* Live readability highlighting (only flags standard/hard sentences) */
+  .readability-standard {
+    background-color: var(--readability-standard);
+  }
+
+  .readability-hard {
+    background-color: var(--readability-hard);
+  }
 }

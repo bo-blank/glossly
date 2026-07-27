@@ -103,6 +103,7 @@ npm run build
 For local LLM providers (recommended for privacy):
 
 ### Ollama
+
 ```bash
 # Install Ollama from ollama.ai
 # Pull a model:
@@ -110,17 +111,20 @@ ollama pull llama3.2
 ```
 
 ### LM Studio
+
 ```bash
 # Download and launch LM Studio desktop app
 # Ensure "Local Server" is enabled
 ```
 
 ### Self-hosted OpenAI-compatible
+
 Any server supporting OpenAI-compatible API (llama.cpp, vLLM, LocalAI, etc.)
 
 ## Provider Configuration
 
 ### Local Options
+
 - **Ollama** - Fastest setup, runs locally
 - **LM Studio** - GUI-based model management
 - **OpenAI-compatible** - Flexible for custom servers
@@ -157,6 +161,7 @@ No automated test suite exists yet — verification is manual against a running 
 ### Local Mode
 
 When a local provider is selected:
+
 - ✅ Zero network calls outside `localhost`
 - ✅ No analytics or telemetry
 - ✅ Manuscript never leaves your machine

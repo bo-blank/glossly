@@ -18,6 +18,7 @@
   import { tocStore } from '../stores/tocStore';
   import { dashboardStore } from '../stores/dashboardStore';
   import { onSelectionChange } from '../note/requestSuggestions';
+  import { ReadabilityHighlight } from '../note/readabilityHighlight';
   import { computeReadability } from '../utils/readability';
 
   const DOC_STORAGE_KEY = 'glossly-document';
@@ -273,6 +274,7 @@
         Placeholder.configure({ placeholder: 'Start writing…' }),
         Selection,
         CharacterCount,
+        ReadabilityHighlight,
         TableOfContents.configure({
           getIndex: getHierarchicalIndexes,
           onUpdate: (content) => tocStore.set(content),
