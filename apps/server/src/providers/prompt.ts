@@ -1,4 +1,4 @@
-import type { Modifier } from './types';
+import type { Modifier, SuggestionMode } from './types';
 
 const MODIFIER_INSTRUCTIONS: Record<string, string> = {
   tighter: 'Make each alternative more concise than the original — cut words without losing meaning.',
@@ -13,30 +13,41 @@ surrounding tone, register, and rhythm. Alternatives must be able to replace the
 same rough length and grammatical role, not a summary or expansion. Return only the phrasing itself, no
 quotation marks, no explanation, no preamble.`;
 
+const SENTENCE_SYSTEM_PROMPT = `You are a quiet, precise writing editor. Given a passage of surrounding context and
+one or more complete sentences selected within it, propose exactly 3 alternative ways to write those sentence(s).
+Preserve the original meaning, tense, and grammatical person, and keep to roughly the same length — restructuring
+the sentence (reordering clauses, changing sentence boundaries within the selection) is allowed as long as the
+meaning and length stay close to the original. Return only the rewritten sentence(s), no quotation marks, no
+explanation, no preamble.`;
+
 export function buildMessages(
   selectedText: string,
   context: string,
   modifier?: Modifier | string,
   previousSuggestions?: string[],
-  modifierInstruction?: string
+  modifierInstruction?: string,
+  mode: SuggestionMode = 'phrase'
 ) {
   // Built-ins are never overridable by a custom instruction under the same id —
   // MODIFIER_INSTRUCTIONS wins whenever the modifier key matches a known built-in.
   const instruction = modifier ? (MODIFIER_INSTRUCTIONS[modifier] ?? modifierInstruction) : undefined;
+  const isSentence = mode === 'sentence';
   const userPrompt = [
     `Context:\n${context}`,
-    `Selected phrase: "${selectedText}"`,
+    isSentence ? `Selected sentence(s): "${selectedText}"` : `Selected phrase: "${selectedText}"`,
     instruction ? `Additional instruction: ${instruction}` : null,
     previousSuggestions?.length
       ? `Already suggested earlier (do not repeat these or close variants):\n${previousSuggestions.map((s) => `- ${s}`).join('\n')}`
       : null,
-    'Give exactly 3 alternative phrasings for the selected phrase.'
+    isSentence
+      ? 'Give exactly 3 alternative rewrites of the selected sentence(s).'
+      : 'Give exactly 3 alternative phrasings for the selected phrase.'
   ]
     .filter(Boolean)
     .join('\n\n');
 
   return [
-    { role: 'system' as const, content: SYSTEM_PROMPT },
+    { role: 'system' as const, content: isSentence ? SENTENCE_SYSTEM_PROMPT : SYSTEM_PROMPT },
     { role: 'user' as const, content: userPrompt }
   ];
 }

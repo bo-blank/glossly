@@ -44,6 +44,13 @@ describe('suggestionCache', () => {
     expect(get(key2)).toBeUndefined();
   });
 
+  it('is sensitive to mode', () => {
+    const key1 = cacheKey({ ...BASE, mode: 'phrase' });
+    const key2 = cacheKey({ ...BASE, mode: 'sentence' });
+    set(key1, ['a']);
+    expect(get(key2)).toBeUndefined();
+  });
+
   it('is sensitive to model', () => {
     const key1 = cacheKey(BASE);
     const key2 = cacheKey({ ...BASE, model: 'other-model' });

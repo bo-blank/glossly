@@ -21,13 +21,20 @@ suggestRouter.post('/api/suggest', async (req, res) => {
     context,
     modifier,
     modifierInstruction,
+    mode,
     previousSuggestions,
     timeout,
     stream
   } = req.body ?? {};
 
-  if (typeof selectedText !== 'string' || selectedText.length < 3 || selectedText.length > 220) {
-    res.status(400).json({ error: 'bad_response', message: 'selectedText must be 3-220 characters.' });
+  if (mode !== undefined && mode !== 'phrase' && mode !== 'sentence') {
+    res.status(400).json({ error: 'bad_response', message: 'mode must be "phrase" or "sentence".' });
+    return;
+  }
+  const maxLength = mode === 'sentence' ? 600 : 220;
+
+  if (typeof selectedText !== 'string' || selectedText.length < 3 || selectedText.length > maxLength) {
+    res.status(400).json({ error: 'bad_response', message: `selectedText must be 3-${maxLength} characters.` });
     return;
   }
 
@@ -69,6 +76,7 @@ suggestRouter.post('/api/suggest', async (req, res) => {
     context: typeof context === 'string' ? context : '',
     modifier,
     modifierInstruction,
+    mode,
     previousSuggestions: previous,
     model,
     baseUrl,

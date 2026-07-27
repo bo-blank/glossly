@@ -1,10 +1,12 @@
 export type Modifier = 'tighter' | 'vivid' | 'plain' | 'more';
+export type SuggestionMode = 'phrase' | 'sentence';
 
 export interface SuggestionRequest {
   selectedText: string;
   context: string;
   modifier?: Modifier | string;
   modifierInstruction?: string;
+  mode?: SuggestionMode;
   previousSuggestions?: string[];
   model: string;
   baseUrl: string;

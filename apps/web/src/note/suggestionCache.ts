@@ -7,12 +7,13 @@ export interface CacheKeyParts {
   context: string;
   modifier?: string;
   modifierInstruction?: string;
+  mode?: string;
   model: string;
   endpointUrl: string;
 }
 
-export function cacheKey({ selectedText, context, modifier, modifierInstruction, model, endpointUrl }: CacheKeyParts): string {
-  return JSON.stringify([selectedText, context, modifier ?? '', modifierInstruction ?? '', model, endpointUrl]);
+export function cacheKey({ selectedText, context, modifier, modifierInstruction, mode, model, endpointUrl }: CacheKeyParts): string {
+  return JSON.stringify([selectedText, context, modifier ?? '', modifierInstruction ?? '', mode ?? '', model, endpointUrl]);
 }
 
 export function get(key: string): string[] | undefined {

@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { noteStore, editorStore } from '../stores/noteStore';
   import { settingsStore } from '../stores/settingsStore';
-  import { requestWithModifier, dismiss } from '../note/requestSuggestions';
+  import { requestWithModifier, requestSentenceRewrite, dismiss } from '../note/requestSuggestions';
 
   let noteRef: HTMLElement;
 
@@ -90,6 +90,9 @@
       <div class="alert alert-error alert-sm text-sm" role="alert">
         <span>{$noteStore.error}</span>
       </div>
+      {#if $noteStore.sentenceRewriteEligible}
+        <button class="btn btn-xs btn-outline mt-2" onclick={requestSentenceRewrite}>Rewrite as sentence(s)</button>
+      {/if}
     {:else}
       <div>
         <h3 class="text-base font-semibold mb-2">Alternative Phrasings</h3>
@@ -123,6 +126,7 @@
             {#each $settingsStore.customModifiers as chip (chip.id)}
               <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier(chip.id, chip.instruction)}>{chip.label}</button>
             {/each}
+            <button class="btn btn-xs btn-ghost btn-outline" onclick={requestSentenceRewrite}>Rewrite sentence</button>
             <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('more')}>New suggestions</button>
           </div>
           <div class="text-xs opacity-60 mt-2">Alt+1–3 apply · Alt+N new · Esc dismiss</div>

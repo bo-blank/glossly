@@ -7,6 +7,10 @@ export interface NoteState {
   suggestions: string[];
   error: string | null;
   position: { x: number; y: number } | null;
+  // True while `error` is the "selection too long" message and the selection is still
+  // within sentence-mode's 600-char ceiling — offers "Rewrite as sentence(s)" instead of
+  // just the plain error.
+  sentenceRewriteEligible: boolean;
 }
 
 export const noteStore = writable<NoteState>({
@@ -14,7 +18,8 @@ export const noteStore = writable<NoteState>({
   loading: false,
   suggestions: [],
   error: null,
-  position: null
+  position: null,
+  sentenceRewriteEligible: false
 });
 
 export interface EditorStore {
