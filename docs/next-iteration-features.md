@@ -10,42 +10,51 @@ All features run entirely on-device; nothing leaves the machine.
 
 ---
 
-## Phase 1 (v1.1) — Core UX
+## Phase 1 (v1.1) — Core UX ✅ shipped
 
 The suggestion loop itself. Streaming comes first: with a local model, waiting
 up to 10 seconds behind a spinner is the single biggest UX problem in the app.
 
-### 1. Streaming suggestions
+### 1. Streaming suggestions ✅
 
-Stream alternatives over SSE so the first option appears in the margin note
-within ~1 second instead of after the full response. Parse the JSON array
-incrementally; render each suggestion as it completes.
+Alternatives stream over SSE so the first option appears in the margin note
+within ~1 second instead of after the full response. The JSON array is parsed
+incrementally (a hand-rolled scanner, not repeated `JSON.parse`); each
+suggestion renders as it completes, with the loading spinner moving below the
+suggestions already shown.
 
-### 2. Response caching
+### 2. Response caching ✅
 
-Cache responses keyed on selection + context + modifier for the session, so
-re-selecting the same phrase or flipping between modifier chips doesn't re-hit
-the model. Invalidate on document edit inside the cached range.
+Responses are cached (session-lifetime LRU, capacity 100) keyed on selection +
+context + modifier + mode + model + endpoint, so re-selecting the same phrase
+or flipping between modifier chips doesn't re-hit the model. Context is part
+of the key, so an edit inside the selection's surrounding text misses the
+cache naturally — no separate invalidation logic. "New suggestions" always
+bypasses the cache, since fresh output is its purpose.
 
-### 3. Custom modifier chips
+### 3. Custom modifier chips ✅
 
-Let writers define their own chips (name + instruction template), stored
-locally next to the built-in Tighter / More vivid / Plainer. Small feature,
-large personalization payoff.
+Writers can define their own chips (label + instruction), stored locally next
+to the built-in Tighter / More vivid / Plainer. A custom chip can never
+override a built-in modifier's instruction under the same id.
 
-### 4. Keyboard-only flow
+### 4. Keyboard-only flow ✅
 
-Accept suggestion 1–3 with number keys, cycle modifiers, dismiss with Escape
-(already works) — the full loop without touching the mouse.
+Alt+1–3 applies a suggestion, Alt+N requests fresh ones, Escape dismisses —
+the full loop without touching the mouse. Unmodified digits/letters are never
+intercepted, so typing prose while the note is open behaves normally.
 
-### 5. Dark mode
+### 5. Dark mode ✅
 
-daisyUI theme toggle; currently hardcoded to `data-theme="light"`.
+A persisted light/dark toggle in the header, following the OS preference by
+default via daisyUI's `light`/`dark` themes.
 
-### 6. Full-sentence rewrite mode (opt-in)
+### 6. Full-sentence rewrite mode (opt-in) ✅
 
-Extend the 220-character selection ceiling to a full sentence when explicitly
-requested, with the same margin-note interaction.
+A "Rewrite sentence" chip expands the selection to its enclosing sentence(s)
+and requests full-sentence rewrites (up to 600 characters, restructuring
+allowed) instead of phrase-level alternatives. An oversized 221–600 character
+selection — previously just an error — now also offers this path directly.
 
 ---
 

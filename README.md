@@ -80,22 +80,17 @@ npm run build
 ### v1 (Current Prototype)
 
 - ✅ Rich-formatted editor (headings, lists, images, links, and more)
-- ✅ Selection → margin note → 3 suggestions
-- ✅ Modifier chips: Tighter, More vivid, Plainer
+- ✅ Selection → margin note → 3 suggestions, streamed in as they're generated
+- ✅ Modifier chips: Tighter, More vivid, Plainer, plus your own custom chips
 - ✅ Click to swap with undo support
+- ✅ Full-sentence rewrite mode (opt-in) alongside the default phrase-level suggestions
+- ✅ Keyboard-only flow: select, review (Alt+1–3 apply, Alt+N new, Esc dismiss), apply
+- ✅ In-session response caching — re-selecting the same phrase/modifier is instant
 - ✅ Local provider switcher (Ollama / LM Studio / OpenAI-compatible)
 - ✅ Settings panel configuration
 - ✅ Local document persistence
+- ✅ Light/dark theme, following the OS preference by default
 - ✅ Table of contents, readability dashboard, AI-likeness detector (beyond the original v1 spec)
-
-### v1.1 (Not yet implemented)
-
-- ⬜ Streaming suggestions
-- ⬜ Response caching
-- ⬜ Custom modifier chips
-- ⬜ Keyboard-only flow
-- ⬜ Dark mode
-- ⬜ Full-sentence rewrite mode (opt-in)
 
 See `docs/next-iteration-features.md` for the full roadmap (v1.2 and beyond).
 
@@ -156,9 +151,10 @@ npm run format --prefix apps/web    # prettier
 
 ### Testing
 
-Unit tests (Vitest) cover the pure text utilities — readability scoring and word-boundary
-snapping. Run them with `npm test`. The LLM suggestion flow is still verified manually
-against a running local provider.
+Unit tests (Vitest, in both `apps/server` and `apps/web`) cover the pure logic: readability
+scoring, word-boundary and sentence-boundary snapping, the incremental SSE suggestion
+parser, and the response cache. Run them with `npm test`. The end-to-end LLM suggestion
+flow is still verified manually against a running local provider.
 
 ## Privacy
 
