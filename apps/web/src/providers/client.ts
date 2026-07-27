@@ -5,6 +5,7 @@ export interface SuggestParams {
   selectedText: string;
   context: string;
   modifier?: string;
+  previousSuggestions?: string[];
   signal: AbortSignal;
 }
 
@@ -22,6 +23,7 @@ export async function fetchSuggestions({
   selectedText,
   context,
   modifier,
+  previousSuggestions,
   signal
 }: SuggestParams): Promise<string[]> {
   const response = await fetch('/api/suggest', {
@@ -32,9 +34,11 @@ export async function fetchSuggestions({
       model: settings.model,
       baseUrl: settings.endpointUrl,
       apiKey: settings.apiKey || undefined,
+      timeout: settings.timeout,
       selectedText,
       context,
-      modifier
+      modifier,
+      previousSuggestions
     }),
     signal
   });
@@ -69,6 +73,7 @@ export async function fetchAiLikeness({ settings, text, signal }: AiLikenessPara
       model: settings.model,
       baseUrl: settings.endpointUrl,
       apiKey: settings.apiKey || undefined,
+      timeout: settings.timeout,
       text
     }),
     signal
@@ -84,10 +89,12 @@ export async function fetchAiLikeness({ settings, text, signal }: AiLikenessPara
 }
 
 export async function fetchModels(baseUrl: string, apiKey?: string): Promise<string[]> {
-  const params = new URLSearchParams({ baseUrl });
-  if (apiKey) params.set('apiKey', apiKey);
-
-  const response = await fetch(`/api/models?${params.toString()}`);
+  // POST so the API key travels in the body, not in a logged query string.
+  const response = await fetch('/api/models', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ baseUrl, apiKey: apiKey || undefined })
+  });
   const body = await response.json().catch(() => null);
 
   if (!response.ok) {

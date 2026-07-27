@@ -9,7 +9,9 @@ process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', 
 process.on('uncaughtException', (err) => console.error('[uncaughtException]', err));
 
 const app = express();
-app.use(cors());
+// Only the local web app may call the proxy — a wide-open CORS policy would let
+// any website in the user's browser use it to reach local/private-network hosts.
+app.use(cors({ origin: /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/ }));
 app.use(express.json());
 
 app.get('/health', (_req, res) => {

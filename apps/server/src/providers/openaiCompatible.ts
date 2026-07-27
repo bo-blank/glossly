@@ -29,7 +29,14 @@ function parseSuggestions(raw: string): string[] {
     throw new SuggestError('bad_response', 'Model response was not an array of 3 strings.');
   }
 
-  return suggestions as string[];
+  // Small local models don't always respect minItems/maxItems — trim overshoot,
+  // but treat an empty list as a failure rather than rendering an empty note.
+  const nonEmpty = (suggestions as string[]).map((s) => s.trim()).filter(Boolean);
+  if (nonEmpty.length === 0) {
+    throw new SuggestError('bad_response', 'Model returned no usable suggestions.');
+  }
+
+  return nonEmpty.slice(0, 3);
 }
 
 function parseAiLikeness(raw: string): AiLikenessResult {
@@ -59,7 +66,7 @@ export const openAICompatibleProvider: LLMProvider = {
   label: 'OpenAI-compatible (local)',
 
   async getSuggestions(input: SuggestionRequest): Promise<string[]> {
-    const { selectedText, context, modifier, model, baseUrl, apiKey, timeout, signal } = input;
+    const { selectedText, context, modifier, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
 
     const timeoutController = new AbortController();
     const timer = setTimeout(() => timeoutController.abort(), timeout);
@@ -75,7 +82,7 @@ export const openAICompatibleProvider: LLMProvider = {
         },
         body: JSON.stringify({
           model,
-          messages: buildMessages(selectedText, context, modifier),
+          messages: buildMessages(selectedText, context, modifier, previousSuggestions),
           response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
           temperature: 0.8
         }),

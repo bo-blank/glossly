@@ -13,12 +13,15 @@ surrounding tone, register, and rhythm. Alternatives must be able to replace the
 same rough length and grammatical role, not a summary or expansion. Return only the phrasing itself, no
 quotation marks, no explanation, no preamble.`;
 
-export function buildMessages(selectedText: string, context: string, modifier?: Modifier) {
+export function buildMessages(selectedText: string, context: string, modifier?: Modifier, previousSuggestions?: string[]) {
   const instruction = modifier ? MODIFIER_INSTRUCTIONS[modifier] : undefined;
   const userPrompt = [
     `Context:\n${context}`,
     `Selected phrase: "${selectedText}"`,
     instruction ? `Additional instruction: ${instruction}` : null,
+    previousSuggestions?.length
+      ? `Already suggested earlier (do not repeat these or close variants):\n${previousSuggestions.map((s) => `- ${s}`).join('\n')}`
+      : null,
     'Give exactly 3 alternative phrasings for the selected phrase.'
   ]
     .filter(Boolean)

@@ -190,10 +190,18 @@
   }
 
   let autosaveTimer;
+  let autosaveFailed = $state(false);
   function scheduleAutosave(ed) {
     clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(() => {
-      localStorage.setItem(DOC_STORAGE_KEY, ed.getHTML());
+      // localStorage throws on quota overflow (easily hit with embedded base64
+      // images) — without the catch the autosave dies silently and edits are lost.
+      try {
+        localStorage.setItem(DOC_STORAGE_KEY, ed.getHTML());
+        autosaveFailed = false;
+      } catch {
+        autosaveFailed = true;
+      }
     }, 500);
   }
 
@@ -578,5 +586,10 @@
 {#if editor}
   <div class="word-count px-4 pb-2 text-xs opacity-60">
     {wordCount} words · {charCount} characters
+    {#if autosaveFailed}
+      <span class="text-error font-medium" role="alert">
+        · ⚠ Autosave failed — browser storage is full (large images?). Recent changes are not saved.
+      </span>
+    {/if}
   </div>
 {/if}

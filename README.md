@@ -56,9 +56,7 @@ Glossly is a privacy-first writing assistant that provides alternative phrasings
 git clone https://github.com/your-repo/glossly.git
 cd glossly
 
-npm install                     # root: dev orchestration tooling
-npm install --prefix apps/web
-npm install --prefix apps/server
+npm install                     # installs all workspaces (root, apps/web, apps/server)
 
 cp .env.example apps/server/.env
 ```
@@ -146,6 +144,7 @@ Any server supporting OpenAI-compatible API (llama.cpp, vLLM, LocalAI, etc.)
 npm run dev
 npm run build
 npm run lint            # lints apps/server
+npm test                # runs vitest across workspaces
 
 # apps/web only
 npm run preview --prefix apps/web   # preview production build
@@ -154,7 +153,9 @@ npm run format --prefix apps/web    # prettier
 
 ### Testing
 
-No automated test suite exists yet — verification is manual against a running local LLM provider.
+Unit tests (Vitest) cover the pure text utilities — readability scoring and word-boundary
+snapping. Run them with `npm test`. The LLM suggestion flow is still verified manually
+against a running local provider.
 
 ## Privacy
 

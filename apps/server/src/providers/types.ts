@@ -1,9 +1,10 @@
-export type Modifier = 'tighter' | 'vivid' | 'plain' | string;
+export type Modifier = 'tighter' | 'vivid' | 'plain' | 'more';
 
 export interface SuggestionRequest {
   selectedText: string;
   context: string;
   modifier?: Modifier;
+  previousSuggestions?: string[];
   model: string;
   baseUrl: string;
   apiKey?: string;

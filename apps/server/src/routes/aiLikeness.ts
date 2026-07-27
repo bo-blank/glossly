@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { openAICompatibleProvider } from '../providers/openaiCompatible';
 import { LLMProvider, SuggestError } from '../providers/types';
+import { resolveTimeout, validateLocalBaseUrl } from '../util/validate';
 
 const providers: Record<string, LLMProvider> = {
   'openai-compatible': openAICompatibleProvider,
@@ -14,7 +15,7 @@ const MIN_LENGTH = 100;
 const MAX_LENGTH = 24000;
 
 aiLikenessRouter.post('/api/ai-likeness', async (req, res) => {
-  const { provider, model, baseUrl, apiKey, text } = req.body ?? {};
+  const { provider, model, baseUrl: rawBaseUrl, apiKey, text, timeout } = req.body ?? {};
 
   if (typeof text !== 'string' || text.length < MIN_LENGTH) {
     res.status(400).json({ error: 'bad_response', message: `text must be at least ${MIN_LENGTH} characters.` });
@@ -24,6 +25,17 @@ aiLikenessRouter.post('/api/ai-likeness', async (req, res) => {
   const impl = providers[provider];
   if (!impl) {
     res.status(400).json({ error: 'bad_response', message: `Unknown provider "${provider}".` });
+    return;
+  }
+
+  const baseUrl = validateLocalBaseUrl(rawBaseUrl);
+  if (!baseUrl) {
+    res.status(400).json({ error: 'bad_response', message: 'baseUrl must be a valid http(s) URL on a local or private-network host.' });
+    return;
+  }
+
+  if (typeof model !== 'string' || !model) {
+    res.status(400).json({ error: 'bad_response', message: 'model is required.' });
     return;
   }
 
@@ -42,7 +54,7 @@ aiLikenessRouter.post('/api/ai-likeness', async (req, res) => {
       model,
       baseUrl,
       apiKey,
-      timeout: Number(process.env.REQUEST_TIMEOUT) || 10000,
+      timeout: resolveTimeout(timeout),
       signal: controller.signal
     });
     res.json(result);

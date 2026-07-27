@@ -18,6 +18,9 @@ let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 let activeController: AbortController | undefined;
 let lastRequestKey: string | undefined;
 let latestSelection: SelectionInfo | null = null;
+// Everything shown for the current selection so far, so "New suggestions" can
+// tell the model what not to repeat. Reset whenever the selection changes.
+let seenSuggestions: string[] = [];
 
 const MIN_LENGTH = 3;
 const MAX_LENGTH = 220;
@@ -26,6 +29,7 @@ const MAX_LENGTH = 220;
 export function onSelectionChange(info: SelectionInfo | null) {
   clearTimeout(debounceTimer);
   latestSelection = info;
+  seenSuggestions = [];
 
   if (!info || info.selectedText.length < MIN_LENGTH) {
     activeController?.abort();
@@ -73,8 +77,13 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined) {
   }
 
   const key = `${info.from}:${info.to}:${info.selectedText}:${modifier ?? ''}`;
-  if (key === lastRequestKey) return;
+  // "New suggestions" (more) is exempt from dedupe — repeating it for the same
+  // selection is exactly its purpose, and each round sends the accumulated
+  // previous suggestions so the model doesn't circle back to earlier wording.
+  if (modifier !== 'more' && key === lastRequestKey) return;
   lastRequestKey = key;
+
+  const previousSuggestions = modifier === 'more' && seenSuggestions.length ? [...seenSuggestions] : undefined;
 
   activeController?.abort();
   const controller = new AbortController();
@@ -95,10 +104,12 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined) {
       selectedText: info.selectedText,
       context: info.context,
       modifier,
+      previousSuggestions,
       signal: controller.signal
     });
 
     if (controller.signal.aborted) return;
+    seenSuggestions.push(...suggestions.filter((s) => !seenSuggestions.includes(s)));
     noteStore.update((n) => ({ ...n, loading: false, suggestions, error: null }));
   } catch (err) {
     if (controller.signal.aborted) return; // superseded by a newer selection — discard silently
