@@ -12,11 +12,27 @@ const providers: Record<string, LLMProvider> = {
 export const suggestRouter = Router();
 
 suggestRouter.post('/api/suggest', async (req, res) => {
-  const { provider, model, baseUrl: rawBaseUrl, apiKey, selectedText, context, modifier, previousSuggestions, timeout, stream } =
-    req.body ?? {};
+  const {
+    provider,
+    model,
+    baseUrl: rawBaseUrl,
+    apiKey,
+    selectedText,
+    context,
+    modifier,
+    modifierInstruction,
+    previousSuggestions,
+    timeout,
+    stream
+  } = req.body ?? {};
 
   if (typeof selectedText !== 'string' || selectedText.length < 3 || selectedText.length > 220) {
     res.status(400).json({ error: 'bad_response', message: 'selectedText must be 3-220 characters.' });
+    return;
+  }
+
+  if (modifierInstruction !== undefined && (typeof modifierInstruction !== 'string' || modifierInstruction.length > 300)) {
+    res.status(400).json({ error: 'bad_response', message: 'modifierInstruction must be a string of at most 300 characters.' });
     return;
   }
 
@@ -52,6 +68,7 @@ suggestRouter.post('/api/suggest', async (req, res) => {
     selectedText,
     context: typeof context === 'string' ? context : '',
     modifier,
+    modifierInstruction,
     previousSuggestions: previous,
     model,
     baseUrl,

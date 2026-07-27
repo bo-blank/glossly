@@ -4,13 +4,35 @@
   import { settingsStore } from '../stores/settingsStore';
   import { fetchModels } from '../providers/client';
 
+  const LABEL_MAX = 24;
+  const INSTRUCTION_MAX = 300;
+
   let models: string[] = [];
   let modelsError = '';
   let loadingModels = false;
 
+  let newLabel = '';
+  let newInstruction = '';
+
   function saveSettings() {
     // Save settings locally
     localStorage.setItem('glossly-settings', JSON.stringify($settingsStore));
+  }
+
+  function addCustomModifier() {
+    const label = newLabel.trim().slice(0, LABEL_MAX);
+    const instruction = newInstruction.trim().slice(0, INSTRUCTION_MAX);
+    if (!label || !instruction) return;
+
+    $settingsStore.customModifiers = [...$settingsStore.customModifiers, { id: crypto.randomUUID(), label, instruction }];
+    saveSettings();
+    newLabel = '';
+    newInstruction = '';
+  }
+
+  function deleteCustomModifier(id: string) {
+    $settingsStore.customModifiers = $settingsStore.customModifiers.filter((m) => m.id !== id);
+    saveSettings();
   }
 
   async function loadModels() {
@@ -137,5 +159,57 @@
       bind:value={$settingsStore.timeout}
       onchange={saveSettings}
     />
+  </div>
+
+  <div class="divider my-1"></div>
+
+  <div class="form-control w-full">
+    <span class="label-text font-medium mb-2">Custom modifiers</span>
+
+    {#if $settingsStore.customModifiers.length}
+      <ul class="space-y-1 mb-3">
+        {#each $settingsStore.customModifiers as chip (chip.id)}
+          <li class="flex items-center justify-between gap-2 bg-base-100 border border-base-300 rounded-lg px-3 py-2">
+            <div class="min-w-0">
+              <div class="text-sm font-medium truncate">{chip.label}</div>
+              <div class="text-xs opacity-60 truncate">{chip.instruction}</div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-ghost btn-xs btn-square shrink-0"
+              aria-label={`Delete "${chip.label}" modifier`}
+              onclick={() => deleteCustomModifier(chip.id)}
+            >
+              ×
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    <div class="flex flex-col gap-2">
+      <input
+        type="text"
+        class="input input-bordered input-sm"
+        placeholder="Label (e.g. More formal)"
+        maxlength={LABEL_MAX}
+        bind:value={newLabel}
+      />
+      <textarea
+        class="textarea textarea-bordered textarea-sm"
+        placeholder="Instruction sent to the model (e.g. Make each alternative more formal in register.)"
+        maxlength={INSTRUCTION_MAX}
+        rows="2"
+        bind:value={newInstruction}
+      ></textarea>
+      <button
+        type="button"
+        class="btn btn-sm self-start"
+        disabled={!newLabel.trim() || !newInstruction.trim()}
+        onclick={addCustomModifier}
+      >
+        Add modifier
+      </button>
+    </div>
   </div>
 </div>

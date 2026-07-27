@@ -2,6 +2,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { noteStore, editorStore } from '../stores/noteStore';
+  import { settingsStore } from '../stores/settingsStore';
   import { requestWithModifier, dismiss } from '../note/requestSuggestions';
 
   let noteRef: HTMLElement;
@@ -95,6 +96,9 @@
             <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('tighter')}>Tighter</button>
             <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('vivid')}>More vivid</button>
             <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('plain')}>Plainer</button>
+            {#each $settingsStore.customModifiers as chip (chip.id)}
+              <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier(chip.id, chip.instruction)}>{chip.label}</button>
+            {/each}
             <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('more')}>New suggestions</button>
           </div>
         {/if}

@@ -78,7 +78,7 @@ export const openAICompatibleProvider: LLMProvider = {
   label: 'OpenAI-compatible (local)',
 
   async getSuggestions(input: SuggestionRequest): Promise<string[]> {
-    const { selectedText, context, modifier, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
+    const { selectedText, context, modifier, modifierInstruction, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
 
     const timeoutController = new AbortController();
     const timer = setTimeout(() => timeoutController.abort(), timeout);
@@ -94,7 +94,7 @@ export const openAICompatibleProvider: LLMProvider = {
         },
         body: JSON.stringify({
           model,
-          messages: buildMessages(selectedText, context, modifier, previousSuggestions),
+          messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction),
           response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
           temperature: 0.8
         }),
@@ -126,7 +126,7 @@ export const openAICompatibleProvider: LLMProvider = {
   },
 
   async streamSuggestions(input: SuggestionRequest, emit: (event: SuggestionStreamEvent) => void): Promise<string[]> {
-    const { selectedText, context, modifier, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
+    const { selectedText, context, modifier, modifierInstruction, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
 
     const timeoutController = new AbortController();
     // Idle timeout: every chunk received off the wire proves the upstream is still
@@ -149,7 +149,7 @@ export const openAICompatibleProvider: LLMProvider = {
         },
         body: JSON.stringify({
           model,
-          messages: buildMessages(selectedText, context, modifier, previousSuggestions),
+          messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction),
           response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
           temperature: 0.8,
           stream: true

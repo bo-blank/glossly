@@ -1,12 +1,19 @@
 // stores/settingsStore.ts
 import { writable } from 'svelte/store';
 
+export interface CustomModifier {
+  id: string;
+  label: string;
+  instruction: string;
+}
+
 export interface Settings {
   provider: 'ollama' | 'lmstudio' | 'openai-compatible';
   model: string;
   endpointUrl: string;
   apiKey: string;
   timeout: number;
+  customModifiers: CustomModifier[];
 }
 
 const STORAGE_KEY = 'glossly-settings';
@@ -16,7 +23,8 @@ const defaultSettings: Settings = {
   model: 'gemma4-e2b-qat',
   endpointUrl: 'http://127.0.0.1:8080/v1',
   apiKey: '',
-  timeout: 10000
+  timeout: 10000,
+  customModifiers: []
 };
 
 function loadSettings(): Settings {

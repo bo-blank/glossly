@@ -3,7 +3,8 @@ export type Modifier = 'tighter' | 'vivid' | 'plain' | 'more';
 export interface SuggestionRequest {
   selectedText: string;
   context: string;
-  modifier?: Modifier;
+  modifier?: Modifier | string;
+  modifierInstruction?: string;
   previousSuggestions?: string[];
   model: string;
   baseUrl: string;

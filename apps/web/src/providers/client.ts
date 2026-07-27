@@ -5,6 +5,7 @@ export interface SuggestParams {
   selectedText: string;
   context: string;
   modifier?: string;
+  modifierInstruction?: string;
   previousSuggestions?: string[];
   signal: AbortSignal;
 }
@@ -23,6 +24,7 @@ export async function fetchSuggestions({
   selectedText,
   context,
   modifier,
+  modifierInstruction,
   previousSuggestions,
   signal
 }: SuggestParams): Promise<string[]> {
@@ -38,6 +40,7 @@ export async function fetchSuggestions({
       selectedText,
       context,
       modifier,
+      modifierInstruction,
       previousSuggestions
     }),
     signal
@@ -76,6 +79,7 @@ export async function fetchSuggestionsStream({
   selectedText,
   context,
   modifier,
+  modifierInstruction,
   previousSuggestions,
   signal,
   onSuggestion
@@ -92,6 +96,7 @@ export async function fetchSuggestionsStream({
       selectedText,
       context,
       modifier,
+      modifierInstruction,
       previousSuggestions,
       stream: true
     }),

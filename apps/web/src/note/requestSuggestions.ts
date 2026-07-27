@@ -58,13 +58,13 @@ export function onSelectionChange(info: SelectionInfo | null) {
 }
 
 /** Called from a modifier chip click — reuses the current selection, no debounce, no re-select needed. */
-export function requestWithModifier(modifier: string) {
+export function requestWithModifier(modifier: string, instruction?: string) {
   if (!latestSelection) return;
   clearTimeout(debounceTimer);
-  void runRequest(latestSelection, modifier);
+  void runRequest(latestSelection, modifier, instruction);
 }
 
-async function runRequest(info: SelectionInfo, modifier: string | undefined) {
+async function runRequest(info: SelectionInfo, modifier: string | undefined, modifierInstruction?: string) {
   // Snap to whole-word boundaries once the selection has settled (never mid-drag, so it
   // can't fight the browser's native selection-extension gesture), then visually reflect
   // the correction so what's sent/replaced matches what's highlighted.
@@ -77,7 +77,7 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined) {
     }
   }
 
-  const key = `${info.from}:${info.to}:${info.selectedText}:${modifier ?? ''}`;
+  const key = `${info.from}:${info.to}:${info.selectedText}:${modifier ?? ''}:${modifierInstruction ?? ''}`;
   // "New suggestions" (more) is exempt from dedupe — repeating it for the same
   // selection is exactly its purpose, and each round sends the accumulated
   // previous suggestions so the model doesn't circle back to earlier wording.
@@ -90,7 +90,14 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined) {
   // "New suggestions" is exempt from caching too — its whole purpose is fresh output.
   const cKey =
     modifier !== 'more'
-      ? cacheKey({ selectedText: info.selectedText, context: info.context, modifier, model: settings.model, endpointUrl: settings.endpointUrl })
+      ? cacheKey({
+          selectedText: info.selectedText,
+          context: info.context,
+          modifier,
+          modifierInstruction,
+          model: settings.model,
+          endpointUrl: settings.endpointUrl
+        })
       : undefined;
 
   if (cKey) {
@@ -128,6 +135,7 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined) {
       selectedText: info.selectedText,
       context: info.context,
       modifier,
+      modifierInstruction,
       previousSuggestions,
       signal: controller.signal,
       onSuggestion: (_index, text) => {

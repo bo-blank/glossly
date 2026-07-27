@@ -13,8 +13,16 @@ surrounding tone, register, and rhythm. Alternatives must be able to replace the
 same rough length and grammatical role, not a summary or expansion. Return only the phrasing itself, no
 quotation marks, no explanation, no preamble.`;
 
-export function buildMessages(selectedText: string, context: string, modifier?: Modifier, previousSuggestions?: string[]) {
-  const instruction = modifier ? MODIFIER_INSTRUCTIONS[modifier] : undefined;
+export function buildMessages(
+  selectedText: string,
+  context: string,
+  modifier?: Modifier | string,
+  previousSuggestions?: string[],
+  modifierInstruction?: string
+) {
+  // Built-ins are never overridable by a custom instruction under the same id —
+  // MODIFIER_INSTRUCTIONS wins whenever the modifier key matches a known built-in.
+  const instruction = modifier ? (MODIFIER_INSTRUCTIONS[modifier] ?? modifierInstruction) : undefined;
   const userPrompt = [
     `Context:\n${context}`,
     `Selected phrase: "${selectedText}"`,
