@@ -12,7 +12,8 @@ const providers: Record<string, LLMProvider> = {
 export const suggestRouter = Router();
 
 suggestRouter.post('/api/suggest', async (req, res) => {
-  const { provider, model, baseUrl: rawBaseUrl, apiKey, selectedText, context, modifier, previousSuggestions, timeout } = req.body ?? {};
+  const { provider, model, baseUrl: rawBaseUrl, apiKey, selectedText, context, modifier, previousSuggestions, timeout, stream } =
+    req.body ?? {};
 
   if (typeof selectedText !== 'string' || selectedText.length < 3 || selectedText.length > 220) {
     res.status(400).json({ error: 'bad_response', message: 'selectedText must be 3-220 characters.' });
@@ -47,18 +48,47 @@ suggestRouter.post('/api/suggest', async (req, res) => {
     if (!res.writableEnded) controller.abort();
   });
 
-  try {
-    const suggestions = await impl.getSuggestions({
-      selectedText,
-      context: typeof context === 'string' ? context : '',
-      modifier,
-      previousSuggestions: previous,
-      model,
-      baseUrl,
-      apiKey,
-      timeout: resolveTimeout(timeout),
-      signal: controller.signal
+  const requestInput = {
+    selectedText,
+    context: typeof context === 'string' ? context : '',
+    modifier,
+    previousSuggestions: previous,
+    model,
+    baseUrl,
+    apiKey,
+    timeout: resolveTimeout(timeout),
+    signal: controller.signal
+  };
+
+  if (stream === true) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive'
     });
+    res.flushHeaders();
+
+    try {
+      const suggestions = await impl.streamSuggestions(requestInput, (event) => {
+        res.write(`event: suggestion\ndata: ${JSON.stringify({ index: event.index, text: event.text })}\n\n`);
+      });
+      res.write(`event: done\ndata: ${JSON.stringify({ suggestions })}\n\n`);
+      res.end();
+    } catch (err) {
+      if (controller.signal.aborted) {
+        res.end();
+        return; // client disconnected/superseded the request — nothing more to send
+      }
+      const { kind, message } =
+        err instanceof SuggestError ? { kind: err.kind, message: err.message } : { kind: 'bad_response', message: (err as Error).message };
+      res.write(`event: error\ndata: ${JSON.stringify({ error: kind, message })}\n\n`);
+      res.end();
+    }
+    return;
+  }
+
+  try {
+    const suggestions = await impl.getSuggestions(requestInput);
     res.json({ suggestions });
   } catch (err) {
     if (controller.signal.aborted) {

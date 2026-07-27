@@ -38,9 +38,16 @@ export interface AiLikenessResult {
   rationale: string;
 }
 
+export interface SuggestionStreamEvent {
+  type: 'suggestion';
+  index: number;
+  text: string;
+}
+
 export interface LLMProvider {
   id: string;
   label: string;
   getSuggestions(input: SuggestionRequest): Promise<string[]>;
+  streamSuggestions(input: SuggestionRequest, emit: (event: SuggestionStreamEvent) => void): Promise<string[]>;
   getAiLikeness(input: AiLikenessRequest): Promise<AiLikenessResult>;
 }

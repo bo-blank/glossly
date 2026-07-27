@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { noteStore, editorStore } from '../stores/noteStore';
 import { settingsStore } from '../stores/settingsStore';
-import { fetchSuggestions, SuggestRequestError } from '../providers/client';
+import { fetchSuggestionsStream, SuggestRequestError } from '../providers/client';
 import { snapToWordBoundaries } from './wordBoundary';
 
 const DEBOUNCE_MS = 200;
@@ -99,13 +99,17 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined) {
 
   try {
     const settings = get(settingsStore);
-    const suggestions = await fetchSuggestions({
+    const suggestions = await fetchSuggestionsStream({
       settings,
       selectedText: info.selectedText,
       context: info.context,
       modifier,
       previousSuggestions,
-      signal: controller.signal
+      signal: controller.signal,
+      onSuggestion: (_index, text) => {
+        if (controller.signal.aborted) return;
+        noteStore.update((n) => ({ ...n, suggestions: [...n.suggestions, text] }));
+      }
     });
 
     if (controller.signal.aborted) return;

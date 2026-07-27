@@ -61,12 +61,7 @@
     role="complementary"
     aria-label="Alternative phrasings"
   >
-    {#if $noteStore.loading}
-      <div class="flex items-center gap-2">
-        <span class="loading loading-spinner loading-sm"></span>
-        <span class="text-sm">Loading...</span>
-      </div>
-    {:else if $noteStore.error}
+    {#if $noteStore.error}
       <div class="alert alert-error alert-sm text-sm" role="alert">
         <span>{$noteStore.error}</span>
       </div>
@@ -90,12 +85,19 @@
             <div class="text-sm">{suggestion}</div>
           </div>
         {/each}
-        <div class="flex gap-2 mt-2 flex-wrap">
-          <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('tighter')}>Tighter</button>
-          <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('vivid')}>More vivid</button>
-          <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('plain')}>Plainer</button>
-          <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('more')}>New suggestions</button>
-        </div>
+        {#if $noteStore.loading}
+          <div class="flex items-center gap-2 py-1">
+            <span class="loading loading-spinner loading-sm"></span>
+            <span class="text-sm opacity-70">Loading...</span>
+          </div>
+        {:else}
+          <div class="flex gap-2 mt-2 flex-wrap">
+            <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('tighter')}>Tighter</button>
+            <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('vivid')}>More vivid</button>
+            <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('plain')}>Plainer</button>
+            <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('more')}>New suggestions</button>
+          </div>
+        {/if}
       </div>
     {/if}
     <button
