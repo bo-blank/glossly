@@ -9,6 +9,17 @@ import {
   SuggestionStreamEvent
 } from './types';
 
+/**
+ * Reasoning models (gemma4, qwen3.x, ...) emit a thinking pass before the answer.
+ * None of it reaches the user — Glossly strips it — but we pay for it in latency.
+ * Measured 2026-09-20 on gemma4-e2b-qat with this exact request shape (3 German
+ * suggestions, JSON schema): 4.61s avg with thinking, 0.67s avg without. Same output
+ * quality. See docs/local-model-notes.md.
+ *
+ * llama.cpp honours this; providers that do not recognise it ignore the extra key.
+ */
+const NO_THINKING = { chat_template_kwargs: { enable_thinking: false } } as const;
+
 function stripReasoning(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 }
@@ -96,7 +107,8 @@ export const openAICompatibleProvider: LLMProvider = {
           model,
           messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode),
           response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
-          temperature: 0.8
+          temperature: 0.8,
+          ...NO_THINKING
         }),
         signal: timeoutController.signal
       });
@@ -152,7 +164,8 @@ export const openAICompatibleProvider: LLMProvider = {
           messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode),
           response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
           temperature: 0.8,
-          stream: true
+          stream: true,
+          ...NO_THINKING
         }),
         signal: timeoutController.signal
       });
@@ -256,7 +269,8 @@ export const openAICompatibleProvider: LLMProvider = {
           model,
           messages: buildAiLikenessMessages(text),
           response_format: { type: 'json_schema', json_schema: AI_LIKENESS_JSON_SCHEMA },
-          temperature: 0.3
+          temperature: 0.3,
+          ...NO_THINKING
         }),
         signal: timeoutController.signal
       });
