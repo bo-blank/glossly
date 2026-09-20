@@ -20,6 +20,19 @@ import {
  */
 const NO_THINKING = { chat_template_kwargs: { enable_thinking: false } } as const;
 
+/**
+ * Hard ceiling on generation. Without it a degenerate run has nothing to stop it: on
+ * 2026-09-20 a streamed suggestion request reached 35,757 tokens and was still going,
+ * heading for the model's full 65,536-token context. Because llama-server runs with
+ * --parallel 1, that one request blocked every other call for minutes — aborting the
+ * browser request does NOT stop the upstream generation.
+ *
+ * Normal completions here are 50-90 tokens, so these caps are ~4x headroom, not a
+ * constraint on real answers.
+ */
+const MAX_TOKENS_SUGGESTIONS = 400;
+const MAX_TOKENS_AI_LIKENESS = 600;
+
 function stripReasoning(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 }
@@ -108,6 +121,7 @@ export const openAICompatibleProvider: LLMProvider = {
           messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode),
           response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
           temperature: 0.8,
+          max_tokens: MAX_TOKENS_SUGGESTIONS,
           ...NO_THINKING
         }),
         signal: timeoutController.signal
@@ -165,6 +179,7 @@ export const openAICompatibleProvider: LLMProvider = {
           response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
           temperature: 0.8,
           stream: true,
+          max_tokens: MAX_TOKENS_SUGGESTIONS,
           ...NO_THINKING
         }),
         signal: timeoutController.signal
@@ -270,6 +285,7 @@ export const openAICompatibleProvider: LLMProvider = {
           messages: buildAiLikenessMessages(text),
           response_format: { type: 'json_schema', json_schema: AI_LIKENESS_JSON_SCHEMA },
           temperature: 0.3,
+          max_tokens: MAX_TOKENS_AI_LIKENESS,
           ...NO_THINKING
         }),
         signal: timeoutController.signal

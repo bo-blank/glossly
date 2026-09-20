@@ -123,3 +123,45 @@ AI-Likeness benutzt. Absenken wuerde den Ausreisser beseitigen, kostet aber Vari
 zwischen den drei Vorschlaegen. Alternativen: `max_tokens` deckeln (z.B. 200) oder das
 JSON-Schema um eine `maxLength` pro Vorschlag erweitern. **Bewusst nicht geaendert** -
 das ist eine Produktentscheidung, kein Bugfix.
+
+## Runaway-Generation: warum Requests scheinbar "haengen" (2026-09-20)
+
+Symptom im llama-swap-Log:
+```
+[INFO] <gemma4-e2b-qat> recovered from upstream disconnection during streaming
+[WARN] error processing streaming response: no valid JSON data found in stream
+```
+Das sind nur die Symptome. Die Ursache stand im Modell-Log:
+
+```
+slot print_timing: id 0 | task 2577 | n_gen = 35757, tg = 88.76 t/s    <- laeuft weiter
+```
+
+Ein einzelner Streaming-Request hatte **35.757 Tokens** erzeugt und lief nach 7 Minuten
+immer noch - Ziel waere das volle `-c 65536` gewesen. Weil llama-server mit `--parallel 1`
+laeuft, blockierte dieser eine Request **jeden** weiteren Aufruf an das Modell: GPU auf
+94%, `/v1/models` antwortet sofort, aber jede Completion laeuft in den Timeout.
+
+Zwei Dinge, die man wissen muss:
+
+1. **Ein Abbruch im Browser stoppt die Generierung NICHT.** `suggest.ts:71` bricht den
+   Upstream-Request ab, llama-swap meldet "recovered from upstream disconnection" - und
+   llama-server generiert trotzdem weiter. Der Slot bleibt belegt.
+2. **Ohne `max_tokens` gibt es keine Obergrenze.** Alle drei Request-Bodies hatten keine.
+
+Fix: harte Deckel in `openaiCompatible.ts`.
+```ts
+const MAX_TOKENS_SUGGESTIONS = 400;   // normale Antworten: 50-90 Tokens
+const MAX_TOKENS_AI_LIKENESS = 600;
+```
+Danach Streaming-Pfad verifiziert: 468-626ms, `suggestion`- und `done`-Events, je 3
+Vorschlaege. Vorher: 30s Timeout.
+
+Das ist derselbe Verteilungsschwanz wie beim `temperature: 0.8`-Befund weiter oben -
+dort ~7x Tokens bei jedem fuenften Request, hier der Extremfall bis ans Kontextende.
+`max_tokens` begrenzt den Schaden; `temperature` senken wuerde die Haeufigkeit senken.
+
+**Diagnose-Rezept**, wenn Glossly wieder haengt: GPU-Auslastung pruefen, dann
+`tail -5 ~/llama-swap-config/logs/<modell>.log` - ein `n_gen`, das weiterzaehlt, ist ein
+Runaway. `kill <llama-server-pid>` gibt die GPU frei, llama-swap laedt das Modell beim
+naechsten Request neu.
