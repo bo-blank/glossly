@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "ts-node src/index.ts",
+    "dev": "node --watch --require ts-node/register src/index.ts",
     "build": "tsc",
     "lint": "eslint . --fix",
     "test": "vitest run"

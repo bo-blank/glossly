@@ -47,6 +47,21 @@ function stripReasoning(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 }
 
+/**
+ * Why a completion carried no usable answer, in words that point at the fix.
+ * "Empty response" alone sent us hunting on 2026-09-24: the real cause was a
+ * reasoning model spending all of max_tokens on its thought channel.
+ */
+export function noAnswerMessage(finishReason: string | null | undefined, sawReasoning: boolean): string {
+  if (finishReason === 'length' && sawReasoning) {
+    return 'The model used up its token limit while thinking and never answered. Turn reasoning off for this model (e.g. `-rea off` in llama-swap) or pick a non-reasoning model.';
+  }
+  if (finishReason === 'length') {
+    return 'The model hit its token limit before finishing its answer.';
+  }
+  return 'Local model server returned an empty response.';
+}
+
 function extractJsonPayload(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   return (fenced ? fenced[1] : text).trim();
@@ -153,9 +168,10 @@ export const openAICompatibleProvider: LLMProvider = {
     }
 
     const body = await response.json();
-    const content: string | undefined = body?.choices?.[0]?.message?.content;
+    const choice = body?.choices?.[0];
+    const content: string | undefined = choice?.message?.content;
     if (!content) {
-      throw new SuggestError('bad_response', 'Local model server returned an empty response.');
+      throw new SuggestError('bad_response', noAnswerMessage(choice?.finish_reason, Boolean(choice?.message?.reasoning_content)));
     }
 
     return parseSuggestions(content);
@@ -219,6 +235,8 @@ export const openAICompatibleProvider: LLMProvider = {
     let lineRemainder = '';
     let contentBuffer = '';
     let emittedCount = 0;
+    let sawReasoning = false;
+    let finishReason: string | null = null;
 
     try {
       // eslint-disable-next-line no-constant-condition
@@ -253,7 +271,11 @@ export const openAICompatibleProvider: LLMProvider = {
             continue; // stray keepalive or partial frame — ignore
           }
 
-          const delta = (parsed as { choices?: { delta?: { content?: unknown } }[] })?.choices?.[0]?.delta;
+          const choice = (parsed as { choices?: { delta?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: string | null }[] })
+            ?.choices?.[0];
+          if (choice?.finish_reason) finishReason = choice.finish_reason;
+          const delta = choice?.delta;
+          if (typeof delta?.reasoning_content === 'string' && delta.reasoning_content) sawReasoning = true;
           if (typeof delta?.content !== 'string') continue;
 
           contentBuffer += delta.content;
@@ -270,7 +292,10 @@ export const openAICompatibleProvider: LLMProvider = {
 
     const finalSuggestions = cleanSuggestions(extractSuggestions(contentBuffer).suggestions);
     if (finalSuggestions.length === 0) {
-      throw new SuggestError('bad_response', 'Model returned no usable suggestions.');
+      throw new SuggestError(
+        'bad_response',
+        finishReason === 'length' ? noAnswerMessage(finishReason, sawReasoning) : 'Model returned no usable suggestions.'
+      );
     }
     return finalSuggestions.slice(0, 3);
   },
@@ -317,9 +342,10 @@ export const openAICompatibleProvider: LLMProvider = {
     }
 
     const body = await response.json();
-    const content: string | undefined = body?.choices?.[0]?.message?.content;
+    const choice = body?.choices?.[0];
+    const content: string | undefined = choice?.message?.content;
     if (!content) {
-      throw new SuggestError('bad_response', 'Local model server returned an empty response.');
+      throw new SuggestError('bad_response', noAnswerMessage(choice?.finish_reason, Boolean(choice?.message?.reasoning_content)));
     }
 
     return parseAiLikeness(content);
