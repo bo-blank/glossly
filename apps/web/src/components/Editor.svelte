@@ -316,7 +316,10 @@
         TaskItem.configure({ nested: true }),
         Subscript,
         Superscript,
-        Image,
+        // Uploads are inserted as data: URLs, and Image drops those on parse by
+        // default — without this every image vanished on reload. WP3 moves
+        // images to blobs.
+        Image.configure({ allowBase64: true }),
         Placeholder.configure({ placeholder: () => placeholderFor(hintSeen) }),
         Selection,
         CharacterCount,
