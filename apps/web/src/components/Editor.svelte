@@ -13,16 +13,16 @@
   import { TableOfContents, getHierarchicalIndexes } from '@tiptap/extension-table-of-contents';
   import StarterKit from '@tiptap/starter-kit';
   import { Editor } from '@tiptap/core';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { editorStore, noteStore } from '../stores/noteStore';
   import { tocStore } from '../stores/tocStore';
   import { dashboardStore } from '../stores/dashboardStore';
-  import { onSelectionChange } from '../note/requestSuggestions';
+  import { onSelectionChange, dismiss } from '../note/requestSuggestions';
   import { ReadabilityHighlight } from '../note/readabilityHighlight';
   import { computeReadability } from '../utils/readability';
   import { STARTER_TEMPLATES, isDocumentDisposable } from '../editor/templates';
   import { loadHintSeen, saveHintSeen, placeholderFor } from '../editor/firstRunHint';
-  import { loadDocument, saveDocument } from '../storage/autosave';
+  import { initDocuments, saveDocument, registerEditor } from '../storage/documentStore';
 
   const CONTEXT_CHAR_BUDGET = 2000;
 
@@ -247,21 +247,54 @@
 
   let autosaveTimer;
   let autosaveFailed = $state(false);
-  // Chosen once at load: IndexedDB, or localStorage when IndexedDB is unavailable.
-  let storageBackend = 'localStorage';
-  function scheduleAutosave(ed) {
-    clearTimeout(autosaveTimer);
-    autosaveTimer = setTimeout(async () => {
-      // Both backends throw on quota overflow (IndexedDB's is just far larger) —
-      // without the catch the autosave dies silently and edits are lost.
-      try {
-        await saveDocument(storageBackend, ed.getHTML());
-        autosaveFailed = false;
-      } catch {
-        autosaveFailed = true;
-      }
-    }, 500);
+  // The document this editor instance shows. Captured per edit, so a save that is
+  // still pending when the writer switches lands in the document it came from.
+  let currentDocId = null;
+  let dirty = false;
+
+  async function saveNow(id, html) {
+    // Both backends throw on quota overflow (IndexedDB's is just far larger) —
+    // without the catch the autosave dies silently and edits are lost.
+    try {
+      await saveDocument(id, html);
+      if (id === currentDocId) dirty = false;
+      autosaveFailed = false;
+    } catch (err) {
+      autosaveFailed = true;
+      throw err;
+    }
   }
+
+  function scheduleAutosave(ed) {
+    const id = currentDocId;
+    dirty = true;
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => saveNow(id, ed.getHTML()).catch(() => {}), 500);
+  }
+
+  registerEditor({
+    async flush() {
+      clearTimeout(autosaveTimer);
+      if (dirty && editor) await saveNow(currentDocId, editor.getHTML());
+    },
+    cancelPendingSave() {
+      clearTimeout(autosaveTimer);
+      dirty = false;
+    },
+    show(id, html) {
+      clearTimeout(autosaveTimer);
+      dirty = false;
+      dismiss();
+      closeAllMenus();
+      editor?.destroy();
+      currentDocId = id;
+      editor = buildEditor(html);
+    },
+  });
+  onDestroy(() => {
+    registerEditor(null);
+    editor?.destroy();
+  });
 
   function publishDashboardStats(ed) {
     dashboardStore.set(
@@ -303,13 +336,10 @@
             </p>
           `;
 
-  onMount(async () => {
-    // Read before constructing: building with DEFAULT_CONTENT and calling
-    // setContent afterwards would flash the default and put it on the undo stack.
-    const { html: savedContent, backend } = await loadDocument();
-    storageBackend = backend;
-
-    editor = new Editor({
+  // Always a fresh instance: reusing one across documents would let Ctrl+Z
+  // undo into the previous manuscript.
+  function buildEditor(content) {
+    const ed = new Editor({
       element: element,
       extensions: [
         Color.configure({ types: [TextStyle.name, ListItem.name] }),
@@ -334,7 +364,7 @@
           onUpdate: (content) => tocStore.set(content),
         }),
       ],
-      content: savedContent || DEFAULT_CONTENT,
+      content,
       onTransaction: () => {
         // force re-render so `editor.isActive` works as expected
         // oxlint-disable-next-line no-self-assign
@@ -348,7 +378,18 @@
       },
     });
 
-    publishDashboardStats(editor);
+    editorStore.set({ editor: ed, selection: { from: 0, to: 0 }, document: content });
+    publishDashboardStats(ed);
+    docVersion++;
+    return ed;
+  }
+
+  onMount(async () => {
+    // Read before constructing: building with DEFAULT_CONTENT and calling
+    // setContent afterwards would flash the default and put it on the undo stack.
+    const { id, html } = await initDocuments(DEFAULT_CONTENT);
+    currentDocId = id;
+    editor = buildEditor(html);
   });
 </script>
 

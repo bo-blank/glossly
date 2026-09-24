@@ -163,7 +163,7 @@ limit.
 - Images are stored as blobs in IndexedDB, not base64 in localStorage.
 - A quota error is shown explicitly, never swallowed.
 
-### 3.3 One document per piece — #7
+### 3.3 One document per piece ✅
 
 As P2, I want several documents, one per piece, so I don't overwrite last
 week's newsletter.

@@ -1,4 +1,5 @@
 import { deleteDocument, getDocument, getDocumentMeta, putDocument, type DocMeta } from './db';
+import { deriveTitle } from './title';
 
 export const LEGACY_DOC_KEY = 'glossly-document';
 // Written by the localStorage fallback on every save, so a session that ran
@@ -36,7 +37,12 @@ export async function migrateFromLocalStorage(storage: Storage = localStorage): 
     if (existing && legacyUpdated <= existing.updatedAt) return 'already-migrated';
 
     const now = Date.now();
-    const meta = existing ? { ...existing, updatedAt: Math.max(now, legacyUpdated) } : newMeta(DEFAULT_DOC_ID, now);
+    const base = existing ?? newMeta(DEFAULT_DOC_ID, now);
+    const meta = {
+      ...base,
+      title: base.titleManual ? base.title : deriveTitle(legacy),
+      updatedAt: existing ? Math.max(now, legacyUpdated) : now
+    };
     await putDocument(meta, legacy);
     wrote = true;
     const readBack = await getDocument(DEFAULT_DOC_ID);

@@ -79,3 +79,11 @@ describe('migrateFromLocalStorage', () => {
     expect(storage.getItem(LEGACY_UPDATED_KEY)).toBeNull();
   });
 });
+
+describe('migrated title', () => {
+  it('derives the title from the migrated document', async () => {
+    const storage = memoryStorage({ [LEGACY_DOC_KEY]: '<h2>Altes Manuskript</h2><p>Kapitel eins.</p>' });
+    await migrateFromLocalStorage(storage);
+    expect((await db.getDocumentMeta(DEFAULT_DOC_ID))?.title).toBe('Altes Manuskript');
+  });
+});

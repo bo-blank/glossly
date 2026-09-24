@@ -2,6 +2,7 @@
 <script>
   import { onMount } from 'svelte';
   import Dashboard from './Dashboard.svelte';
+  import DocumentMenu from './DocumentMenu.svelte';
   import Editor from './Editor.svelte';
   import MarginNote from './MarginNote.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
@@ -24,8 +25,11 @@
 
 <div class="min-h-screen p-4">
   <div class="max-w-[640px] mx-auto flex flex-col gap-4">
-    <header class="flex justify-between items-center p-4 rounded-xl bg-base-200">
-      <h1 class="text-2xl font-bold">Glossly</h1>
+    <header class="flex justify-between items-center gap-2 p-4 rounded-xl bg-base-200">
+      <div class="flex items-center gap-2 min-w-0">
+        <h1 class="text-2xl font-bold">Glossly</h1>
+        <DocumentMenu />
+      </div>
       <div class="flex items-center gap-1">
         <button
           class="btn btn-ghost btn-square btn-sm"

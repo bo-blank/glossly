@@ -110,6 +110,14 @@ export async function putDocument(meta: DocMeta, html: string): Promise<void> {
   return done;
 }
 
+/** Metadata only — a rename must not rewrite the manuscript. */
+export async function putDocumentMeta(meta: DocMeta): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction('documentMeta', 'readwrite');
+  tx.objectStore('documentMeta').put(meta);
+  return transactionDone(tx);
+}
+
 export async function deleteDocument(id: string): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(['documents', 'documentMeta'], 'readwrite');
