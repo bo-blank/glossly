@@ -10,6 +10,13 @@ import {
 } from './db';
 import { DEFAULT_DOC_ID, LEGACY_DOC_KEY, LEGACY_UPDATED_KEY, migrateFromLocalStorage, newMeta } from './migrate';
 import { deriveTitle, TITLE_MAX } from './title';
+import {
+  collectImageGarbage,
+  convertDataUrlImages,
+  handOverSharedImages,
+  preloadImages,
+  restoreMissingImages
+} from './imageStore';
 
 export { deriveTitle };
 
@@ -116,6 +123,28 @@ async function refreshAutoTitle(meta: DocMeta, html: string) {
   documentStore.update((s) => ({ ...s, documents: s.documents.map((d) => (d.id === meta.id ? updated : d)) }));
 }
 
+/**
+ * Converts base64 images to blobs once (documents from before WP3 would
+ * otherwise stay huge forever) and preloads every image for display.
+ * If saving the converted HTML fails, the original is shown — it still works.
+ */
+async function prepareForDisplay(id: string, html: string): Promise<string> {
+  let shown = html;
+  const converted = await convertDataUrlImages(id, html);
+  if (converted !== html) {
+    try {
+      // Current metadata, not a caller's copy: the title may just have been refreshed.
+      const meta = get(documentStore).documents.find((d) => d.id === id) ?? newMeta(id);
+      await putDocument(meta, converted);
+      if ((await getDocument(id))?.html === converted) shown = converted;
+    } catch {
+      // keep showing the original data URLs
+    }
+  }
+  await preloadImages(shown);
+  return shown;
+}
+
 // ---------------------------------------------------------------- lifecycle
 
 /**
@@ -140,8 +169,9 @@ export async function initDocuments(defaultHtml: string): Promise<{ id: string; 
       const record = await getDocument(active.id);
       if (record) {
         await refreshAutoTitle(active, record.html);
+        const html = await prepareForDisplay(active.id, record.html);
         setActive(active.id);
-        return { id: active.id, html: record.html };
+        return { id: active.id, html };
       }
     }
     const created = await createRecord(defaultHtml, documents.length === 0 ? DEFAULT_DOC_ID : newId());
@@ -166,6 +196,7 @@ export async function saveDocument(id: string, html: string): Promise<void> {
     return;
   }
   if (deletedIds.has(id)) return;
+  await restoreMissingImages(id, html);
   const current = state.documents.find((d) => d.id === id) ?? newMeta(id, now);
   const meta = {
     ...current,
@@ -176,6 +207,8 @@ export async function saveDocument(id: string, html: string): Promise<void> {
   await putDocument(meta, html);
   if (deletedIds.has(id)) return;
   documentStore.update((s) => ({ ...s, documents: upsert(s.documents, meta) }));
+  // After the save, never during: a failed collection only leaves garbage behind.
+  await collectImageGarbage(id, html).catch(() => {});
 }
 
 // ---------------------------------------------------------------- operations
@@ -183,8 +216,9 @@ export async function saveDocument(id: string, html: string): Promise<void> {
 async function open(id: string): Promise<void> {
   const record = await getDocument(id);
   if (!record) throw new Error(`Document ${id} not found`);
+  const html = await prepareForDisplay(id, record.html);
   setActive(id);
-  bridge?.show(id, record.html);
+  bridge?.show(id, html);
 }
 
 /** Saves the outgoing document first — otherwise the last <500 ms of typing is lost on every switch. */
@@ -236,6 +270,9 @@ async function remove(id: string): Promise<void> {
   // A pending autosave would write the deleted document straight back.
   if (wasActive) bridge?.cancelPendingSave();
   deletedIds.add(id);
+  // An image pasted into another document still points at this one's blob.
+  const others = get(documentStore).documents.filter((d) => d.id !== id);
+  await handOverSharedImages(id, others.map((d) => d.id), async (docId) => (await getDocument(docId))?.html ?? '');
   await deleteDocument(id);
   documentStore.update((s) => ({ ...s, documents: s.documents.filter((d) => d.id !== id) }));
   if (!wasActive) return;

@@ -118,11 +118,59 @@ export async function putDocumentMeta(meta: DocMeta): Promise<void> {
   return transactionDone(tx);
 }
 
+/** Removes the document, its metadata and all its images in one transaction. */
 export async function deleteDocument(id: string): Promise<void> {
   const db = await openDb();
-  const tx = db.transaction(['documents', 'documentMeta'], 'readwrite');
+  const tx = db.transaction(['documents', 'documentMeta', 'blobs'], 'readwrite');
   tx.objectStore('documents').delete(id);
   tx.objectStore('documentMeta').delete(id);
+  const cursor = tx.objectStore('blobs').index('by-doc').openKeyCursor(IDBKeyRange.only(id));
+  cursor.onsuccess = () => {
+    const c = cursor.result;
+    if (!c) return;
+    tx.objectStore('blobs').delete(c.primaryKey);
+    c.continue();
+  };
+  return transactionDone(tx);
+}
+
+export interface BlobRecord {
+  id: string;
+  docId: string;
+  blob: Blob;
+}
+
+export async function putBlobs(records: BlobRecord[]): Promise<void> {
+  if (records.length === 0) return;
+  const db = await openDb();
+  const tx = db.transaction('blobs', 'readwrite');
+  const done = transactionDone(tx);
+  try {
+    for (const r of records) tx.objectStore('blobs').put(r);
+  } catch (err) {
+    done.catch(() => {});
+    tx.abort();
+    throw err;
+  }
+  return done;
+}
+
+export async function getBlob(id: string): Promise<BlobRecord | undefined> {
+  const db = await openDb();
+  return promisify(db.transaction('blobs').objectStore('blobs').get(id));
+}
+
+export async function listBlobIds(docId: string): Promise<string[]> {
+  const db = await openDb();
+  const index = db.transaction('blobs').objectStore('blobs').index('by-doc');
+  return (await promisify(index.getAllKeys(IDBKeyRange.only(docId)))) as string[];
+}
+
+export async function deleteBlobs(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await openDb();
+  const tx = db.transaction('blobs', 'readwrite');
+  for (const id of ids) tx.objectStore('blobs').delete(id);
   return transactionDone(tx);
 }
 

@@ -155,7 +155,7 @@ survives browser resets and works with my backups and git.
 - Open and save go through the File System Access API.
 - Markdown round-trips without loss: headings, lists, blockquotes, code, images, links.
 
-### 3.2 No storage cliff — #10, Phase 2 WP3
+### 3.2 No storage cliff ✅
 
 As P1, I want to paste images without the document quietly hitting a storage
 limit.

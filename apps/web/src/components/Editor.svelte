@@ -8,7 +8,8 @@
   import { TextAlign } from '@tiptap/extension-text-align';
   import { Subscript } from '@tiptap/extension-subscript';
   import { Superscript } from '@tiptap/extension-superscript';
-  import { Image } from '@tiptap/extension-image';
+  import { get } from 'svelte/store';
+  import { BlobImage } from '../editor/blobImage';
   import { Placeholder, Selection, CharacterCount } from '@tiptap/extensions';
   import { TableOfContents, getHierarchicalIndexes } from '@tiptap/extension-table-of-contents';
   import StarterKit from '@tiptap/starter-kit';
@@ -22,7 +23,9 @@
   import { computeReadability } from '../utils/readability';
   import { STARTER_TEMPLATES, isDocumentDisposable } from '../editor/templates';
   import { loadHintSeen, saveHintSeen, placeholderFor } from '../editor/firstRunHint';
-  import { initDocuments, saveDocument, registerEditor } from '../storage/documentStore';
+  import { initDocuments, saveDocument, registerEditor, documentStore } from '../storage/documentStore';
+  import { storeImage, releaseImagesExcept, releaseAllImages } from '../storage/imageStore';
+  import { extractBlobIds } from '../storage/blobRefs';
 
   const CONTEXT_CHAR_BUDGET = 2000;
 
@@ -162,15 +165,25 @@
     if (imageInputRef) imageInputRef.click();
   }
 
-  function handleImageFile(e) {
+  async function handleImageFile(e) {
     const file = e.target.files && e.target.files[0];
+    e.target.value = '';
     if (!file) return;
+    if (get(documentStore).backend === 'indexeddb') {
+      // The blob is stored before the node exists, so no save can reference a missing image.
+      try {
+        const src = await storeImage(currentDocId, file);
+        editor.chain().focus().setImage({ src }).run();
+        return;
+      } catch {
+        // fall through to an inline image — it still saves, just larger
+      }
+    }
     const reader = new FileReader();
     reader.onload = () => {
       editor.chain().focus().setImage({ src: reader.result }).run();
     };
     reader.readAsDataURL(file);
-    e.target.value = '';
   }
 
   onMount(() => {
@@ -289,11 +302,17 @@
       editor?.destroy();
       currentDocId = id;
       editor = buildEditor(html);
+      // Ready to type in right away — the menu that triggered this had focus.
+      editor.commands.focus('start', { scrollIntoView: false });
+      // Revoke the previous document's object URLs once the new one has
+      // rendered — in the same tick, images blank out mid-render.
+      setTimeout(() => releaseImagesExcept(extractBlobIds(editor.getHTML())), 0);
     },
   });
   onDestroy(() => {
     registerEditor(null);
     editor?.destroy();
+    releaseAllImages();
   });
 
   function publishDashboardStats(ed) {
@@ -351,10 +370,9 @@
         TaskItem.configure({ nested: true }),
         Subscript,
         Superscript,
-        // Uploads are inserted as data: URLs, and Image drops those on parse by
-        // default — without this every image vanished on reload. WP3 moves
-        // images to blobs.
-        Image.configure({ allowBase64: true }),
+        // allowBase64: the localStorage fallback still inserts data: URLs, and
+        // documents from before WP3 hold them until their one-time conversion.
+        BlobImage.configure({ allowBase64: true }),
         Placeholder.configure({ placeholder: () => placeholderFor(hintSeen) }),
         Selection,
         CharacterCount,
