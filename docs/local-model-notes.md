@@ -16,6 +16,19 @@ Aber Glossly schaltet das Reasoning nicht ab und zahlt dafür bei **jedem** Requ
 **6.9x schneller bei gleicher Qualität.** Die Vorschläge sind in beiden Fällen
 brauchbares, förmliches Deutsch — das Nachdenken landet ohnehin nicht im Ergebnis.
 
+> **Update 2026-09-24: `enable_thinking: false` wirkt nicht mehr.** Seit llama-swap
+> für gemma4 Googles offizielles `chat_template.jinja` lädt, unterdrückt das
+> Template den Thought-Kanal nicht mehr — das Modell denkt trotzdem. llama.cpp hält
+> Thinking dann für aus, verfolgt keine Thinking-Tags und erzwingt kein Budget.
+> Gemessen (20 Requests, deutsch): 14/20 mit Reasoning, 7/20 **leerer Content**
+> (`finish=length`). `reasoning_effort: 'none'` scheitert genauso.
+>
+> Was funktioniert: **nur** `thinking_budget_tokens: 0`, *ohne* `enable_thinking`.
+> Dann schließt llama.cpp den Thought-Block selbst: 0/20 Reasoning, 20/20 gültig,
+> Median 0.55 s. Durch den echten Proxy: 100/100, Median ~0.5 s. Umgesetzt in
+> `openaiCompatible.ts` (`NO_THINKING`). Die Empfehlungen unten zu
+> `enable_thinking` sind damit überholt.
+
 ## Die Änderung
 
 In `apps/server/src/providers/openaiCompatible.ts` gibt es drei Request-Bodies

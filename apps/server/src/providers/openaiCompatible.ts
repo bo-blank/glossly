@@ -17,8 +17,18 @@ import {
  * quality. See docs/local-model-notes.md.
  *
  * llama.cpp honours this; providers that do not recognise it ignore the extra key.
+ *
+ * Only the reasoning *budget* is sent — deliberately NOT `enable_thinking: false`.
+ * Measured 2026-09-24 on gemma4-e2b-qat (Google's official Gemma-4 template):
+ *   - `enable_thinking: false`: the template no longer suppresses the thought
+ *     channel, so the model thinks anyway, and llama.cpp — believing thinking is
+ *     off — tracks no thinking tags and enforces no budget. 14/20 requests
+ *     thought; 7/20 hit max_tokens with EMPTY content.
+ *   - `thinking_budget_tokens: 0` alone: llama.cpp closes the thought block
+ *     itself, whatever the template does. 0/20 thought, 20/20 valid, ~0.55s.
+ * Sending both combines the failure of the first with nothing of the second.
  */
-const NO_THINKING = { chat_template_kwargs: { enable_thinking: false } } as const;
+const NO_THINKING = { thinking_budget_tokens: 0 } as const;
 
 /**
  * Hard ceiling on generation. Without it a degenerate run has nothing to stop it: on
