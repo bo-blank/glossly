@@ -7,18 +7,25 @@ const MODIFIER_INSTRUCTIONS: Record<string, string> = {
   more: 'Give 3 different alternative phrasings than before — avoid repeating the same wording or ideas.'
 };
 
+// The system prompt is English, which small local models otherwise take as a hint
+// to answer in English even for a German selection. State the rule explicitly.
+const LANGUAGE_RULE = `Write every alternative in the same language as the selected text, and keep the form of
+address and register the context uses (for example formal "Sie" vs. informal "du" in German).`;
+
 const SYSTEM_PROMPT = `You are a quiet, precise writing editor. Given a passage of surrounding context and a
 phrase selected within it, propose exactly 3 alternative phrasings for the selected phrase that fit the
 surrounding tone, register, and rhythm. Alternatives must be able to replace the selection in place —
 same rough length and grammatical role, not a summary or expansion. Return only the phrasing itself, no
-quotation marks, no explanation, no preamble.`;
+quotation marks, no explanation, no preamble.
+${LANGUAGE_RULE}`;
 
 const SENTENCE_SYSTEM_PROMPT = `You are a quiet, precise writing editor. Given a passage of surrounding context and
 one or more complete sentences selected within it, propose exactly 3 alternative ways to write those sentence(s).
 Preserve the original meaning, tense, and grammatical person, and keep to roughly the same length — restructuring
 the sentence (reordering clauses, changing sentence boundaries within the selection) is allowed as long as the
 meaning and length stay close to the original. Return only the rewritten sentence(s), no quotation marks, no
-explanation, no preamble.`;
+explanation, no preamble.
+${LANGUAGE_RULE}`;
 
 export function buildMessages(
   selectedText: string,
