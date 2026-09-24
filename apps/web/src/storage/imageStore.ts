@@ -135,3 +135,15 @@ export async function handOverSharedImages(
   }
   await putBlobs(handovers);
 }
+
+/** The image as a data: URL, for exports that must stand on their own (Markdown files). */
+export async function imageDataUrl(id: string): Promise<string | undefined> {
+  const blob = entries.get(id)?.blob ?? (await getBlob(id).catch(() => undefined))?.blob;
+  if (!blob) return undefined;
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => resolve(undefined);
+    reader.readAsDataURL(blob);
+  });
+}

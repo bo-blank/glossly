@@ -10,6 +10,14 @@
     relativeTime,
   } from '../storage/documentStore';
   import { STARTER_TEMPLATES } from '../editor/templates';
+  import { editorStore } from '../stores/noteStore';
+  import {
+    MARKDOWN_ACCEPT,
+    editorToMarkdown,
+    downloadMarkdown,
+    markdownFileName,
+    markdownToHtml,
+  } from '../editor/markdownFiles';
 
   let open = $state(false);
   // 'list' | 'new' — "New document" swaps the list for the starter templates.
@@ -21,6 +29,7 @@
   let busy = $state(false);
   let rootRef = $state(null);
   let renameInput = $state(null);
+  let importInput = $state(null);
   // Re-rendered on open so "5 min ago" isn't frozen at page load.
   let now = $state(Date.now());
 
@@ -66,6 +75,25 @@
 
   async function create(template) {
     if (await run(() => createDocument(template.content), 'Could not create the document.')) close();
+  }
+
+  async function exportMarkdown() {
+    const editor = $editorStore.editor;
+    if (!editor) return;
+    if (await run(async () => downloadMarkdown(await editorToMarkdown(editor), markdownFileName(activeTitle)), 'Could not export the document.')) close();
+  }
+
+  // Import always creates a new document, so nothing is ever overwritten.
+  async function importMarkdown(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    const editor = $editorStore.editor;
+    if (!file || !editor) return;
+    const ok = await run(
+      async () => createDocument(markdownToHtml(await file.text(), editor)),
+      `Could not import ${file.name}.`
+    );
+    if (ok) close();
   }
 
   async function startRename(doc) {
@@ -141,6 +169,30 @@
           >
             <span aria-hidden="true">＋</span> New document
           </button>
+          <button
+            class="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md hover:bg-base-300 text-sm"
+            disabled={busy}
+            onclick={() => importInput?.click()}
+          >
+            <span aria-hidden="true">↥</span> Import Markdown…
+          </button>
+          <button
+            class="w-full text-left px-3 py-2 rounded-md hover:bg-base-300"
+            disabled={busy}
+            onclick={exportMarkdown}
+          >
+            <span class="flex items-center gap-2 text-sm"><span aria-hidden="true">↧</span> Export as Markdown</span>
+            <span class="block text-xs opacity-60 mt-0.5 pl-5">
+              Images are embedded. Highlights, colours, underline, alignment and sub/superscript have no Markdown form — they export as plain text.
+            </span>
+          </button>
+          <input
+            bind:this={importInput}
+            type="file"
+            accept={MARKDOWN_ACCEPT}
+            class="hidden"
+            onchange={importMarkdown}
+          />
           <div class="border-t border-base-300 my-1"></div>
 
           <ul class="max-h-80 overflow-y-auto">

@@ -234,8 +234,10 @@ export function createDocument(html: string): Promise<void> {
   return serial(async () => {
     await bridge?.flush();
     const meta = await createRecord(html);
+    // Imported Markdown can carry embedded data: images — store them as blobs.
+    const shown = await prepareForDisplay(meta.id, html);
     setActive(meta.id);
-    bridge?.show(meta.id, html);
+    bridge?.show(meta.id, shown);
   });
 }
 

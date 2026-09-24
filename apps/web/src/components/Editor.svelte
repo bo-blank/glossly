@@ -1,18 +1,10 @@
 <script>
   import "./styles.scss";
 
-  import { Color } from '@tiptap/extension-text-style';
-  import { ListItem, TaskItem, TaskList } from '@tiptap/extension-list';
-  import { TextStyle } from '@tiptap/extension-text-style';
-  import { Highlight } from '@tiptap/extension-highlight';
-  import { TextAlign } from '@tiptap/extension-text-align';
-  import { Subscript } from '@tiptap/extension-subscript';
-  import { Superscript } from '@tiptap/extension-superscript';
   import { get } from 'svelte/store';
-  import { BlobImage } from '../editor/blobImage';
+  import { schemaExtensions } from '../editor/schemaExtensions';
   import { Placeholder, Selection, CharacterCount } from '@tiptap/extensions';
   import { TableOfContents, getHierarchicalIndexes } from '@tiptap/extension-table-of-contents';
-  import StarterKit from '@tiptap/starter-kit';
   import { Editor } from '@tiptap/core';
   import { onMount, onDestroy } from 'svelte';
   import { editorStore, noteStore } from '../stores/noteStore';
@@ -361,18 +353,7 @@
     const ed = new Editor({
       element: element,
       extensions: [
-        Color.configure({ types: [TextStyle.name, ListItem.name] }),
-        TextStyle.configure({ types: [ListItem.name] }),
-        StarterKit,
-        Highlight.configure({ multicolor: true }),
-        TextAlign.configure({ types: ['heading', 'paragraph'] }),
-        TaskList,
-        TaskItem.configure({ nested: true }),
-        Subscript,
-        Superscript,
-        // allowBase64: the localStorage fallback still inserts data: URLs, and
-        // documents from before WP3 hold them until their one-time conversion.
-        BlobImage.configure({ allowBase64: true }),
+        ...schemaExtensions,
         Placeholder.configure({ placeholder: () => placeholderFor(hintSeen) }),
         Selection,
         CharacterCount,
