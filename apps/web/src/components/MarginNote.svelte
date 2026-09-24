@@ -5,6 +5,19 @@
   import { settingsStore } from '../stores/settingsStore';
   import { requestWithModifier, requestSentenceRewrite, dismiss } from '../note/requestSuggestions';
 
+  // Tooltips say in plain words what each chip will do, for writers who don't
+  // already think in terms of "register" or "concision". Custom chips show
+  // their own instruction instead.
+  const MODIFIER_CHIPS = [
+    { label: 'Tighter', tip: 'Fewer words, same meaning', run: () => requestWithModifier('tighter') },
+    { label: 'More vivid', tip: 'More concrete and sensory, without getting flowery', run: () => requestWithModifier('vivid') },
+    { label: 'Plainer', tip: 'Simpler words, more direct', run: () => requestWithModifier('plain') }
+  ];
+  const ACTION_CHIPS = [
+    { label: 'Rewrite sentence', tip: 'Rework the whole sentence, not just the selection', run: requestSentenceRewrite },
+    { label: 'New suggestions', tip: 'Three different alternatives', run: () => requestWithModifier('more') }
+  ];
+
   let noteRef: HTMLElement;
 
   function applySuggestion(suggestion: string) {
@@ -120,14 +133,21 @@
           </div>
         {:else}
           <div class="flex gap-2 mt-2 flex-wrap">
-            <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('tighter')}>Tighter</button>
-            <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('vivid')}>More vivid</button>
-            <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('plain')}>Plainer</button>
-            {#each $settingsStore.customModifiers as chip (chip.id)}
-              <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier(chip.id, chip.instruction)}>{chip.label}</button>
+            {#each MODIFIER_CHIPS as chip (chip.label)}
+              <span class="tooltip tooltip-bottom" data-tip={chip.tip}>
+                <button class="btn btn-xs btn-ghost btn-outline" onclick={chip.run}>{chip.label}</button>
+              </span>
             {/each}
-            <button class="btn btn-xs btn-ghost btn-outline" onclick={requestSentenceRewrite}>Rewrite sentence</button>
-            <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier('more')}>New suggestions</button>
+            {#each $settingsStore.customModifiers as chip (chip.id)}
+              <span class="tooltip tooltip-bottom" data-tip={chip.instruction}>
+                <button class="btn btn-xs btn-ghost btn-outline" onclick={() => requestWithModifier(chip.id, chip.instruction)}>{chip.label}</button>
+              </span>
+            {/each}
+            {#each ACTION_CHIPS as chip (chip.label)}
+              <span class="tooltip tooltip-bottom" data-tip={chip.tip}>
+                <button class="btn btn-xs btn-ghost btn-outline" onclick={chip.run}>{chip.label}</button>
+              </span>
+            {/each}
           </div>
           <div class="text-xs opacity-60 mt-2">Alt+1–3 apply · Alt+N new · Esc dismiss</div>
         {/if}

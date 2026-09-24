@@ -14,13 +14,14 @@
   import StarterKit from '@tiptap/starter-kit';
   import { Editor } from '@tiptap/core';
   import { onMount } from 'svelte';
-  import { editorStore } from '../stores/noteStore';
+  import { editorStore, noteStore } from '../stores/noteStore';
   import { tocStore } from '../stores/tocStore';
   import { dashboardStore } from '../stores/dashboardStore';
   import { onSelectionChange } from '../note/requestSuggestions';
   import { ReadabilityHighlight } from '../note/readabilityHighlight';
   import { computeReadability } from '../utils/readability';
   import { STARTER_TEMPLATES, isDocumentDisposable } from '../editor/templates';
+  import { loadHintSeen, saveHintSeen, placeholderFor } from '../editor/firstRunHint';
 
   const DOC_STORAGE_KEY = 'glossly-document';
   const CONTEXT_CHAR_BUDGET = 2000;
@@ -232,6 +233,18 @@
     onSelectionChange({ selectedText, context, from, to, screenPos });
   }
 
+  // Read by the Placeholder extension on every render, so it needs no reactivity:
+  // the next transaction after a flip picks up the plain placeholder.
+  let hintSeen = loadHintSeen();
+  onMount(() => {
+    if (hintSeen) return;
+    return noteStore.subscribe((note) => {
+      if (hintSeen || note.suggestions.length === 0) return;
+      hintSeen = true;
+      saveHintSeen();
+    });
+  });
+
   let autosaveTimer;
   let autosaveFailed = $state(false);
   function scheduleAutosave(ed) {
@@ -304,7 +317,7 @@
         Subscript,
         Superscript,
         Image,
-        Placeholder.configure({ placeholder: 'Start writing…' }),
+        Placeholder.configure({ placeholder: () => placeholderFor(hintSeen) }),
         Selection,
         CharacterCount,
         ReadabilityHighlight,

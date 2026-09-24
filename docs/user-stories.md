@@ -131,7 +131,7 @@ repetition — to never be changed in suggestions.
 Fits the filter (trustworthy) and is cheap: one list per document plus one
 prompt line. Depends on Phase 2 (#7) for per-document storage.
 
-### 2.5 Suggestions in my language and register — partial
+### 2.5 Suggestions in my language and register ✅
 
 As a German-writing user, I want suggestions in the language of my text and in
 the same register (Sie/du).
@@ -139,12 +139,9 @@ the same register (Sie/du).
 - Suggestions are in the same language as the selection.
 - The register of the context (formal/informal address) is kept.
 
-**Today:** the system prompt (`apps/server/src/providers/prompt.ts`) is in
-English and asks to match "tone, register, and rhythm", but never says to
-answer in the selection's language — the model has to infer it. Model tests
-in `docs/local-model-notes.md` were done in German and look fine, but nothing
-enforces it. Fix: one explicit prompt line, plus a German prompt fixture in the
-tests.
+Both system prompts in `apps/server/src/providers/prompt.ts` now state the
+rule explicitly (`LANGUAGE_RULE`), with a German fixture in `prompt.test.ts`.
+Before, the English prompt left the model to guess the answer language.
 
 ---
 
@@ -237,7 +234,7 @@ The rule for this epic: the beginner gets the *same* quiet margin note, made
 easier to discover and understand. No second intelligence layer, no teaching
 mode.
 
-### 6.1 Discover the core gesture — gap
+### 6.1 Discover the core gesture ✅
 
 As P5, I want to find out that selecting text shows alternatives, without
 reading a manual.
@@ -245,13 +242,20 @@ reading a manual.
 - An empty or new document shows a one-line hint ("Select a word or phrase to see alternatives").
 - The hint disappears after the first successful suggestion and doesn't come back.
 
-### 6.2 Chips that explain themselves — gap
+The empty-editor placeholder carries the hint until the first suggestion
+arrives (`apps/web/src/editor/firstRunHint.ts`). The default document explains
+the gesture too.
+
+### 6.2 Chips that explain themselves ✅
 
 As P5, I want to know what "Tighter", "More vivid" and "Plainer" will do
 before I click them.
 
 - Each chip has a short tooltip in plain words ("fewer words, same meaning").
 - Tooltips work on keyboard focus too, not just hover.
+
+Built-in chips have plain-word tooltips; custom chips show their own
+instruction (`MarginNote.svelte`).
 
 ### 6.3 Works out of the box — partial
 
