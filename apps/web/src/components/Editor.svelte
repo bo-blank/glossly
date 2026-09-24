@@ -20,6 +20,7 @@
   import { onSelectionChange } from '../note/requestSuggestions';
   import { ReadabilityHighlight } from '../note/readabilityHighlight';
   import { computeReadability } from '../utils/readability';
+  import { STARTER_TEMPLATES, isDocumentDisposable } from '../editor/templates';
 
   const DOC_STORAGE_KEY = 'glossly-document';
   const CONTEXT_CHAR_BUDGET = 2000;
@@ -47,6 +48,11 @@
   let linkBtnRef = $state(null);
   let linkUrl = $state('');
 
+  let templateOpen = $state(false);
+  let templatePos = $state({ x: 0, y: 0 });
+  let templateBtnRef = $state(null);
+  let pendingTemplate = $state(null);
+
   const headingLevels = [1, 2, 3, 4];
 
   const highlightColors = [
@@ -62,6 +68,8 @@
     listOpen = false;
     highlightOpen = false;
     linkOpen = false;
+    templateOpen = false;
+    pendingTemplate = null;
   }
 
   function positionOf(btnRef) {
@@ -106,6 +114,37 @@
     }
   }
 
+  function toggleTemplateMenu() {
+    const wasOpen = templateOpen;
+    closeAllMenus();
+    if (!wasOpen && templateBtnRef) {
+      const rect = templateBtnRef.getBoundingClientRect();
+      // The template menu is far wider than the icon menus, so it needs clamping
+      // to stay on screen when the button sits near the right edge.
+      const MENU_WIDTH = 288;
+      const MARGIN = 8;
+      templatePos = {
+        x: Math.max(MARGIN, Math.min(rect.left, window.innerWidth - MENU_WIDTH - MARGIN)),
+        y: rect.bottom
+      };
+      templateOpen = true;
+    }
+  }
+
+  function chooseTemplate(template) {
+    if (isDocumentDisposable(editor.getText())) {
+      applyTemplate(template);
+      return;
+    }
+    pendingTemplate = template;
+  }
+
+  function applyTemplate(template) {
+    editor.chain().focus().setContent(template.content, { emitUpdate: true }).run();
+    templateOpen = false;
+    pendingTemplate = null;
+  }
+
   function applyLink() {
     if (!linkUrl) return;
     editor.chain().focus().extendMarkRange('link').setLink({ href: linkUrl }).run();
@@ -134,13 +173,17 @@
   }
 
   onMount(() => {
-    const handleClick = (e) => {
+    // Listens on mousedown, not click: a menu item that re-renders its own menu
+    // (the template confirm step) is detached from the DOM by the time a click
+    // event reaches document, so `contains(e.target)` would report false and
+    // close the menu the item just opened. mousedown always sees a live target.
+    const handleOutside = (e) => {
       if (toolbarRef && !toolbarRef.contains(e.target)) {
         closeAllMenus();
       }
     };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
   });
 
   function extractContext(doc, from) {
@@ -233,34 +276,16 @@
   }
 
   const DEFAULT_CONTENT = `
-            <h2>
-              Hi there,
-            </h2>
+            <h2>Start anywhere</h2>
             <p>
-              this is a <em>basic</em> example of <strong>Tiptap</strong>. Sure, there are all kind of basic text styles you'd probably expect from a text editor. But wait until you see the lists:
+              Select a phrase — three words or three lines — and Glossly offers alternatives in the margin. Nothing leaves your machine, and nothing rewrites itself behind your back.
             </p>
-            <ul>
-              <li>
-                That's a bullet list with one …
-              </li>
-              <li>
-                … or two list items.
-              </li>
-            </ul>
             <p>
-              Isn't that great? And all of that is editable. But wait, there's more. Let's try a code block:
+              Try it on this sentence, which is longer than it needs to be and says less than it should.
             </p>
-            <pre><code class="language-css">body {
-  display: none;
-}</code></pre>
             <p>
-              I know, I know, this is impressive. It's only the tip of the iceberg though. Give it a try and click a little bit around. Don't forget to check the other examples too.
+              If you would rather start from a shape than from a blank page, open <strong>Templates</strong> in the toolbar: a LinkedIn post, a blog article, a newsletter issue, a cover letter, or nothing at all.
             </p>
-            <blockquote>
-              Wow, that's amazing. Good work, boy! 👏
-              <br />
-              — Mom
-            </blockquote>
           `;
 
   onMount(() => {
@@ -577,6 +602,55 @@
           onchange={handleImageFile}
           class="hidden"
         />
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Starter templates -->
+      <div class="toolbar-group">
+        <button
+          bind:this={templateBtnRef}
+          onclick={(e) => { e.stopPropagation(); toggleTemplateMenu(); }}
+          class="btn btn-ghost btn-sm gap-1"
+          title="Start from a template"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          <span class="text-xs font-normal">Templates</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        {#if templateOpen}
+          <div
+            class="fixed p-2 w-72 bg-base-200 border border-base-300 rounded-lg shadow-lg z-[100]"
+            style="left: {templatePos.x}px; top: {templatePos.y}px;"
+          >
+            {#if pendingTemplate}
+              <div class="px-3 py-2 text-sm">
+                <p class="font-medium">Replace your draft with “{pendingTemplate.name}”?</p>
+                <p class="opacity-60 text-xs mt-1">Your current text is swapped out. ⌘Z brings it back.</p>
+              </div>
+              <div class="flex gap-1 px-1 pt-1">
+                <button
+                  onclick={() => applyTemplate(pendingTemplate)}
+                  class="btn btn-primary btn-sm flex-1"
+                >Replace</button>
+                <button
+                  onclick={() => { pendingTemplate = null; }}
+                  class="btn btn-ghost btn-sm flex-1"
+                >Cancel</button>
+              </div>
+            {:else}
+              {#each STARTER_TEMPLATES as template}
+                <button
+                  onclick={() => chooseTemplate(template)}
+                  class="block w-full text-left px-3 py-2 rounded-md hover:bg-base-300 transition-colors"
+                >
+                  <span class="block text-sm">{template.name}</span>
+                  <span class="block text-xs opacity-60">{template.blurb}</span>
+                </button>
+              {/each}
+            {/if}
+          </div>
+        {/if}
       </div>
 
     </div>

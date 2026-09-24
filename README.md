@@ -11,6 +11,7 @@ Glossly is a privacy-first writing assistant that provides alternative phrasings
 - **Tactical phrase suggestions** - 3 alternatives for selected text (3-220 characters)
 - **Modifier system** - Tighter, More vivid, Plainer options
 - **Rich manuscript editor** - headings, lists, blockquotes, code blocks, images, links, highlights, text alignment
+- **Starter templates** - LinkedIn post, blog article, newsletter issue, cover letter, or a blank page
 - **Table of contents** - clickable heading navigation
 - **Writing dashboard** - word/character count, reading time, Flesch readability scoring, on-demand AI-likeness detection
 - **Local-first architecture** - Zero network calls outside localhost, ever
