@@ -22,8 +22,8 @@
   import { computeReadability } from '../utils/readability';
   import { STARTER_TEMPLATES, isDocumentDisposable } from '../editor/templates';
   import { loadHintSeen, saveHintSeen, placeholderFor } from '../editor/firstRunHint';
+  import { loadDocument, saveDocument } from '../storage/autosave';
 
-  const DOC_STORAGE_KEY = 'glossly-document';
   const CONTEXT_CHAR_BUDGET = 2000;
 
   // oxlint-disable-next-line
@@ -247,13 +247,15 @@
 
   let autosaveTimer;
   let autosaveFailed = $state(false);
+  // Chosen once at load: IndexedDB, or localStorage when IndexedDB is unavailable.
+  let storageBackend = 'localStorage';
   function scheduleAutosave(ed) {
     clearTimeout(autosaveTimer);
-    autosaveTimer = setTimeout(() => {
-      // localStorage throws on quota overflow (easily hit with embedded base64
-      // images) — without the catch the autosave dies silently and edits are lost.
+    autosaveTimer = setTimeout(async () => {
+      // Both backends throw on quota overflow (IndexedDB's is just far larger) —
+      // without the catch the autosave dies silently and edits are lost.
       try {
-        localStorage.setItem(DOC_STORAGE_KEY, ed.getHTML());
+        await saveDocument(storageBackend, ed.getHTML());
         autosaveFailed = false;
       } catch {
         autosaveFailed = true;
@@ -301,8 +303,11 @@
             </p>
           `;
 
-  onMount(() => {
-    const savedContent = localStorage.getItem(DOC_STORAGE_KEY);
+  onMount(async () => {
+    // Read before constructing: building with DEFAULT_CONTENT and calling
+    // setContent afterwards would flash the default and put it on the undo stack.
+    const { html: savedContent, backend } = await loadDocument();
+    storageBackend = backend;
 
     editor = new Editor({
       element: element,
