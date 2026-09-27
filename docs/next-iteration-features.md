@@ -56,6 +56,14 @@ and requests full-sentence rewrites (up to 600 characters, restructuring
 allowed) instead of phrase-level alternatives. An oversized 221–600 character
 selection — previously just an error — now also offers this path directly.
 
+### Starter templates ✅
+
+Added alongside the six above rather than planned up front. A toolbar menu
+starts a draft from a LinkedIn post, blog article, newsletter issue, cover
+letter or blank page. Replacing a non-empty draft asks first and stays
+undoable, and the default document introduces Glossly instead of Tiptap's demo
+text.
+
 ---
 
 ## Phase 2 (v1.2) — Documents you can trust
