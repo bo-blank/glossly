@@ -10,6 +10,17 @@ export interface DocMeta {
   titleManual: boolean;
   createdAt: number;
   updatedAt: number;
+  file?: FileLink;
+}
+
+/** A document opened from or saved to disk. The handle survives structured clone, not JSON. */
+export interface FileLink {
+  handle: FileSystemFileHandle;
+  name: string;
+  /** The file's lastModified right after Glossly last read or wrote it. */
+  modified: number;
+  /** The document's updatedAt at that moment — anything later is not on disk yet. */
+  syncedAt: number;
 }
 
 export interface DocRecord {
@@ -92,6 +103,17 @@ export async function getDocumentMeta(id: string): Promise<DocMeta | undefined> 
   return promisify(db.transaction('documentMeta').objectStore('documentMeta').get(id));
 }
 
+// `file` is written by putFileLink alone: an autosave or rename working from an
+// older copy of the metadata must not drop a link made in the meantime.
+function putMetaKeepingFile(store: IDBObjectStore, meta: DocMeta) {
+  const request = store.get(meta.id);
+  request.onsuccess = () => {
+    const { file: _stale, ...rest } = meta;
+    const file = (request.result as DocMeta | undefined)?.file;
+    store.put(file ? { ...rest, file } : rest);
+  };
+}
+
 /** Writes content and metadata in one transaction, so they can never diverge. */
 export async function putDocument(meta: DocMeta, html: string): Promise<void> {
   const db = await openDb();
@@ -99,7 +121,7 @@ export async function putDocument(meta: DocMeta, html: string): Promise<void> {
   const done = transactionDone(tx);
   try {
     tx.objectStore('documents').put({ id: meta.id, html } satisfies DocRecord);
-    tx.objectStore('documentMeta').put(meta);
+    putMetaKeepingFile(tx.objectStore('documentMeta'), meta);
   } catch (err) {
     // put() can throw synchronously (e.g. DataCloneError). The first put is
     // already queued and would commit on its own — abort to keep both stores in step.
@@ -114,7 +136,22 @@ export async function putDocument(meta: DocMeta, html: string): Promise<void> {
 export async function putDocumentMeta(meta: DocMeta): Promise<void> {
   const db = await openDb();
   const tx = db.transaction('documentMeta', 'readwrite');
-  tx.objectStore('documentMeta').put(meta);
+  putMetaKeepingFile(tx.objectStore('documentMeta'), meta);
+  return transactionDone(tx);
+}
+
+/** Sets or clears a document's file link, leaving the rest of its metadata alone. */
+export async function putFileLink(id: string, file: FileLink | undefined): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction('documentMeta', 'readwrite');
+  const store = tx.objectStore('documentMeta');
+  const request = store.get(id);
+  request.onsuccess = () => {
+    const current = request.result as DocMeta | undefined;
+    if (!current) return;
+    const { file: _old, ...rest } = current;
+    store.put(file ? { ...rest, file } : rest);
+  };
   return transactionDone(tx);
 }
 

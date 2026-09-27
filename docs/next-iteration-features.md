@@ -66,31 +66,41 @@ text.
 
 ---
 
-## Phase 2 (v1.2) — Documents you can trust
+## Phase 2 (v1.2) — Documents you can trust ✅ shipped
 
-Turns the prototype into a tool a writer can keep a manuscript in. Today a
-single document lives in localStorage, which silently caps out around 5 MB.
+Turns the prototype into a tool a writer can keep a manuscript in. Before this
+phase a single document lived in localStorage, which silently caps out around
+5 MB.
 
-### 7. Multiple documents
+### 7. Multiple documents ✅
 
-A simple local document list (create, rename, delete, switch).
+A local document list in the header (create from a starter template, rename,
+delete, switch). Titles follow the first heading until the writer names a
+document. Switching saves the outgoing document first and starts a fresh undo
+history, so Ctrl+Z never crosses from one manuscript into another.
 
-### 8. Save to real files
+### 8. Save to real files ✅
 
-Open/save Markdown files via the File System Access API so manuscripts live in
-the writer's own folders, not browser storage. Browser storage becomes the
-autosave/crash-recovery layer, not the source of truth.
+Open and save Markdown files via the File System Access API (Chromium), so
+manuscripts live in the writer's own folders. Ctrl+S writes the file; once the
+writer has granted write access, autosave writes it too. IndexedDB stays the
+crash-recovery layer. A file changed outside Glossly is never overwritten
+silently: the writer chooses which version to keep. Other browsers keep the
+Markdown download and import.
 
-### 9. Markdown import/export
+### 9. Markdown import/export ✅
 
-Lossless round-trip between the Tiptap document and Markdown (headings, lists,
-blockquotes, code, images, links).
+Round-trip between the Tiptap document and Markdown for headings, lists, task
+lists, blockquotes, code, images and links. Import creates a new document, and
+export embeds images. Highlights, colours, alignment and sub/superscript have
+no Markdown form and export as plain text; the UI says so.
 
-### 10. IndexedDB persistence
+### 10. IndexedDB persistence ✅
 
-Replace localStorage with IndexedDB for autosave: no 5 MB cliff, images stored
-as blobs instead of base64 strings, explicit quota-error surfacing (the warning
-shipped in Phase 0 stays as the last line of defense).
+Autosave moved from localStorage to IndexedDB: no 5 MB cliff, images stored as
+blobs instead of base64 strings, with a verified one-time migration. The quota
+warning from Phase 0 stays as the last line of defense, and without IndexedDB
+the old localStorage path still works.
 
 ---
 

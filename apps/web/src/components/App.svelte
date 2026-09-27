@@ -4,6 +4,7 @@
   import Dashboard from './Dashboard.svelte';
   import DocumentMenu from './DocumentMenu.svelte';
   import Editor from './Editor.svelte';
+  import FileConflictDialog from './FileConflictDialog.svelte';
   import MarginNote from './MarginNote.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
   import TableOfContents from './TableOfContents.svelte';
@@ -61,6 +62,7 @@
       <MarginNote />
       <Dashboard />
     </main>
+    <FileConflictDialog />
   </div>
 
   <div class="fixed top-0 right-0 z-[100]" bind:this={settingsPanel}>

@@ -204,3 +204,45 @@ describe('placeholder titles from WP1', () => {
     expect((await db.getDocumentMeta('default'))?.title).toBe('Echter Titel');
   });
 });
+
+describe('file-backed documents', () => {
+  const handle = { name: 'kapitel.md' } as unknown as FileSystemFileHandle;
+  const opened = { handle, name: 'kapitel.md', modified: 42 };
+
+  it('start out in sync with the file they were opened from', async () => {
+    await ds.initDocuments('<p>a</p>');
+    const id = await ds.createDocument('<h1>Kapitel</h1>', opened);
+    const meta = state().documents.find((d) => d.id === id)!;
+    expect(meta.file).toEqual({ ...opened, syncedAt: meta.updatedAt });
+    expect((await db.getDocumentMeta(id))?.file).toEqual(meta.file);
+  });
+
+  it('keep the link through autosaves, which move them ahead of the file', async () => {
+    await ds.initDocuments('<p>a</p>');
+    const id = await ds.createDocument('<p>b</p>', opened);
+    await ds.saveDocument(id, '<p>b edited</p>');
+    const meta = state().documents.find((d) => d.id === id)!;
+    expect(meta.file?.name).toBe('kapitel.md');
+    expect(meta.updatedAt).toBeGreaterThan(meta.file!.syncedAt);
+  });
+
+  it('keep a link made while an autosave was in flight', async () => {
+    await ds.initDocuments('<p>a</p>');
+    const saving = ds.saveDocument('default', '<p>a edited</p>');
+    await ds.linkFile('default', { ...opened, syncedAt: 1 });
+    await saving;
+    expect(state().documents[0].file?.name).toBe('kapitel.md');
+    expect((await db.getDocumentMeta('default'))?.file?.name).toBe('kapitel.md');
+  });
+
+  it('take the file’s content when the writer chooses the disk version', async () => {
+    await ds.initDocuments('<p>a</p>');
+    const id = await ds.createDocument('<p>local</p>', opened);
+    await ds.saveDocument(id, '<p>local edit</p>');
+    await ds.replaceFromFile(id, '<h1>Von der Platte</h1>', { ...opened, modified: 99 });
+    const meta = state().documents.find((d) => d.id === id)!;
+    expect(shown.at(-1)).toEqual({ id, html: '<h1>Von der Platte</h1>' });
+    expect((await db.getDocument(id))?.html).toBe('<h1>Von der Platte</h1>');
+    expect(meta).toMatchObject({ title: 'Von der Platte', file: { modified: 99, syncedAt: meta.updatedAt } });
+  });
+});

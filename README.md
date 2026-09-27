@@ -12,6 +12,8 @@ Glossly is a privacy-first writing assistant that provides alternative phrasings
 - **Modifier system** - Tighter, More vivid, Plainer options
 - **Rich manuscript editor** - headings, lists, blockquotes, code blocks, images, links, highlights, text alignment
 - **Starter templates** - LinkedIn post, blog article, newsletter issue, cover letter, or a blank page
+- **Multiple documents** - switch, rename and delete local documents, autosaved to IndexedDB
+- **Real files** - open and save Markdown files on disk with Ctrl+S (Chromium); Markdown import/export everywhere
 - **Table of contents** - clickable heading navigation
 - **Writing dashboard** - word/character count, reading time, Flesch readability scoring, on-demand AI-likeness detection
 - **Local-first architecture** - Zero network calls outside localhost, ever

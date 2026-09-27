@@ -6,7 +6,9 @@ import {
   listDocumentMeta,
   putDocument,
   putDocumentMeta,
-  type DocMeta
+  putFileLink,
+  type DocMeta,
+  type FileLink
 } from './db';
 import { DEFAULT_DOC_ID, LEGACY_DOC_KEY, LEGACY_UPDATED_KEY, migrateFromLocalStorage, newMeta } from './migrate';
 import { deriveTitle, TITLE_MAX } from './title';
@@ -81,8 +83,17 @@ function sortByUpdated(docs: DocMeta[]): DocMeta[] {
   return [...docs].sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+// The listed file link is the live one: linkFile() may have set it while the
+// caller's copy of the metadata was in flight (see putFileLink in db.ts).
 function upsert(docs: DocMeta[], meta: DocMeta): DocMeta[] {
-  return sortByUpdated([...docs.filter((d) => d.id !== meta.id), meta]);
+  const listed = docs.find((d) => d.id === meta.id);
+  const merged = listed ? { ...meta, file: listed.file } : meta;
+  if (!merged.file) delete merged.file;
+  return sortByUpdated([...docs.filter((d) => d.id !== meta.id), merged]);
+}
+
+function replaceListed(docs: DocMeta[], meta: DocMeta): DocMeta[] {
+  return docs.map((d) => (d.id === meta.id ? { ...meta, file: d.file } : d));
 }
 
 function setActive(id: string) {
@@ -106,9 +117,14 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
-async function createRecord(html: string, id = newId()): Promise<DocMeta> {
-  const meta = { ...newMeta(id), title: deriveTitle(html) };
+/** A file it came from starts out in sync: its link is stamped with the new document's updatedAt. */
+async function createRecord(html: string, id = newId(), file?: Omit<FileLink, 'syncedAt'>): Promise<DocMeta> {
+  const meta: DocMeta = { ...newMeta(id), title: deriveTitle(html) };
   await putDocument(meta, html);
+  if (file) {
+    meta.file = { ...file, syncedAt: meta.updatedAt };
+    await putFileLink(id, meta.file);
+  }
   documentStore.update((s) => ({ ...s, documents: upsert(s.documents, meta) }));
   return meta;
 }
@@ -120,7 +136,7 @@ async function refreshAutoTitle(meta: DocMeta, html: string) {
   if (meta.titleManual || meta.title === title) return;
   const updated = { ...meta, title };
   await putDocumentMeta(updated);
-  documentStore.update((s) => ({ ...s, documents: s.documents.map((d) => (d.id === meta.id ? updated : d)) }));
+  documentStore.update((s) => ({ ...s, documents: replaceListed(s.documents, updated) }));
 }
 
 /**
@@ -230,14 +246,56 @@ export function switchDocument(id: string): Promise<void> {
   });
 }
 
-export function createDocument(html: string): Promise<void> {
+/** Saves the active document now if it has unsaved edits — before it is written to disk. */
+export function flushActive(): Promise<void> {
   return serial(async () => {
     await bridge?.flush();
-    const meta = await createRecord(html);
+  });
+}
+
+/** Returns the new document's id. `file` links it to the file it was opened from. */
+export function createDocument(html: string, file?: Omit<FileLink, 'syncedAt'>): Promise<string> {
+  return serial(async () => {
+    await bridge?.flush();
+    const meta = await createRecord(html, newId(), file);
     // Imported Markdown can carry embedded data: images — store them as blobs.
     const shown = await prepareForDisplay(meta.id, html);
     setActive(meta.id);
     bridge?.show(meta.id, shown);
+    return meta.id;
+  });
+}
+
+/** Records a disk read or write. Metadata only: the document itself did not change. */
+export async function linkFile(id: string, file: FileLink): Promise<void> {
+  await putFileLink(id, file);
+  documentStore.update((s) => ({ ...s, documents: s.documents.map((d) => (d.id === id ? { ...d, file } : d)) }));
+}
+
+/**
+ * Replaces a document with what its file holds (the writer chose the disk
+ * version of a conflict). Pending edits are dropped, not saved — they are the
+ * version being discarded — and the editor is rebuilt so Ctrl+Z can't bring
+ * them back into the file's content.
+ */
+export function replaceFromFile(id: string, html: string, file: Omit<FileLink, 'syncedAt'>): Promise<void> {
+  return serial(async () => {
+    const current = get(documentStore).documents.find((d) => d.id === id);
+    if (!current || deletedIds.has(id)) return;
+    const active = get(documentStore).activeId === id;
+    if (active) bridge?.cancelPendingSave();
+    const meta = {
+      ...current,
+      title: current.titleManual ? current.title : deriveTitle(html),
+      updatedAt: Date.now()
+    };
+    await putDocument(meta, html);
+    documentStore.update((s) => ({ ...s, documents: upsert(s.documents, meta) }));
+    await linkFile(id, { ...file, syncedAt: meta.updatedAt });
+    if (active) {
+      const shown = await prepareForDisplay(id, html);
+      bridge?.show(id, shown);
+    }
   });
 }
 
@@ -259,7 +317,7 @@ async function rename(id: string, title: string): Promise<void> {
   }
   await putDocumentMeta(meta);
   // Keep the list position: a rename is not an edit, so updatedAt stays.
-  documentStore.update((s) => ({ ...s, documents: s.documents.map((d) => (d.id === id ? meta : d)) }));
+  documentStore.update((s) => ({ ...s, documents: replaceListed(s.documents, meta) }));
 }
 
 /** Deleting the active document lands on the most recent remaining one, or a fresh blank one. */

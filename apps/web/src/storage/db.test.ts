@@ -1,7 +1,19 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDb, deleteDocument, getDocument, getDocumentMeta, isAvailable, listDocumentMeta, putDocument, type DocMeta } from './db';
+import {
+  closeDb,
+  deleteDocument,
+  getDocument,
+  getDocumentMeta,
+  isAvailable,
+  listDocumentMeta,
+  putDocument,
+  putDocumentMeta,
+  putFileLink,
+  type DocMeta,
+  type FileLink
+} from './db';
 
 function meta(id: string, updatedAt: number): DocMeta {
   return { id, title: id, titleManual: false, createdAt: 1, updatedAt };
@@ -51,5 +63,34 @@ describe('db', () => {
     await expect(putDocument(broken, '<p>after</p>')).rejects.toThrow();
     expect(await getDocument('a')).toEqual({ id: 'a', html: '<p>before</p>' });
     expect((await getDocumentMeta('a'))?.updatedAt).toBe(1);
+  });
+
+  describe('file links', () => {
+    // A real FileSystemFileHandle only exists in a browser; any clonable object stands in.
+    const link: FileLink = { handle: { name: 'a.md' } as unknown as FileSystemFileHandle, name: 'a.md', modified: 5, syncedAt: 1 };
+
+    it('survives saves and renames made from metadata without it', async () => {
+      await putDocument(meta('a', 1), '<p>x</p>');
+      await putFileLink('a', link);
+      await putDocument(meta('a', 2), '<p>y</p>');
+      await putDocumentMeta({ ...meta('a', 2), title: 'Renamed' });
+      const stored = await getDocumentMeta('a');
+      expect(stored?.file).toEqual(link);
+      expect(stored?.title).toBe('Renamed');
+    });
+
+    it('can only be changed by putFileLink', async () => {
+      await putDocument(meta('a', 1), '<p>x</p>');
+      await putFileLink('a', link);
+      await putDocumentMeta({ ...meta('a', 1), file: { ...link, name: 'stale.md' } });
+      expect((await getDocumentMeta('a'))?.file?.name).toBe('a.md');
+      await putFileLink('a', undefined);
+      expect(await getDocumentMeta('a')).toEqual(meta('a', 1));
+    });
+
+    it('does not create metadata for a missing document', async () => {
+      await putFileLink('ghost', link);
+      expect(await getDocumentMeta('ghost')).toBeUndefined();
+    });
   });
 });

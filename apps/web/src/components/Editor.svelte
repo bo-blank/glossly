@@ -18,6 +18,8 @@
   import { initDocuments, saveDocument, registerEditor, documentStore } from '../storage/documentStore';
   import { storeImage, releaseImagesExcept, releaseAllImages } from '../storage/imageStore';
   import { extractBlobIds } from '../storage/blobRefs';
+  import { scheduleDiskSync } from '../storage/fileStore';
+  import FileStatus from './FileStatus.svelte';
 
   const CONTEXT_CHAR_BUDGET = 2000;
 
@@ -264,6 +266,7 @@
       await saveDocument(id, html);
       if (id === currentDocId) dirty = false;
       autosaveFailed = false;
+      scheduleDiskSync(id);
     } catch (err) {
       autosaveFailed = true;
       throw err;
@@ -350,6 +353,10 @@
   // Always a fresh instance: reusing one across documents would let Ctrl+Z
   // undo into the previous manuscript.
   function buildEditor(content) {
+    // TableOfContents stamps heading ids in its own onCreate, which runs before
+    // ours. That is not an edit: saving it would make every freshly opened file
+    // look changed and rewrite it on disk.
+    let created = false;
     const ed = new Editor({
       element: element,
       extensions: [
@@ -370,9 +377,12 @@
         editor = editor;
       },
       onSelectionUpdate: ({ editor: ed }) => handleSelectionUpdate(ed),
+      onCreate: () => {
+        created = true;
+      },
       onUpdate: ({ editor: ed }) => {
         docVersion++;
-        scheduleAutosave(ed);
+        if (created) scheduleAutosave(ed);
         publishDashboardStats(ed);
       },
     });
@@ -721,6 +731,7 @@
 {#if editor}
   <div class="word-count px-4 pb-2 text-xs opacity-60">
     {wordCount} words · {charCount} characters
+    <FileStatus />
     {#if autosaveFailed}
       <span class="text-error font-medium" role="alert">
         · ⚠ Autosave failed — browser storage is full (large images?). Recent changes are not saved.

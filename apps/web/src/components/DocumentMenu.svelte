@@ -18,6 +18,13 @@
     markdownFileName,
     markdownToHtml,
   } from '../editor/markdownFiles';
+  import {
+    fileAccessSupported,
+    openFile,
+    saveToDisk,
+    watchActiveFile,
+    reportFileError,
+  } from '../storage/fileStore';
 
   let open = $state(false);
   // 'list' | 'new' — "New document" swaps the list for the starter templates.
@@ -33,9 +40,8 @@
   // Re-rendered on open so "5 min ago" isn't frozen at page load.
   let now = $state(Date.now());
 
-  let activeTitle = $derived(
-    $documentStore.documents.find((d) => d.id === $documentStore.activeId)?.title ?? 'Untitled'
-  );
+  let activeDoc = $derived($documentStore.documents.find((d) => d.id === $documentStore.activeId));
+  let activeTitle = $derived(activeDoc?.title ?? 'Untitled');
 
   function reset() {
     view = 'list';
@@ -96,6 +102,14 @@
     if (ok) close();
   }
 
+  async function openFromDisk() {
+    if (await run(openFile, 'Could not open the file.')) close();
+  }
+
+  async function saveFromMenu() {
+    if (await run(saveToDisk, 'Could not save to disk.')) close();
+  }
+
   async function startRename(doc) {
     pendingDeleteId = null;
     renamingId = doc.id;
@@ -124,12 +138,27 @@
     };
     const handleKey = (e) => {
       if (open && e.key === 'Escape' && !renamingId) close();
+      // Plain Ctrl/Cmd+S only. The margin note's shortcuts all need Alt, so
+      // nothing else claims this; without the API, the browser keeps its own.
+      if (
+        fileAccessSupported &&
+        $documentStore.backend === 'indexeddb' &&
+        (e.ctrlKey || e.metaKey) &&
+        !e.altKey &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === 's'
+      ) {
+        e.preventDefault();
+        if (!e.repeat) saveToDisk().catch((err) => reportFileError(err?.message || 'Could not save to disk.'));
+      }
     };
+    const stopWatching = watchActiveFile();
     document.addEventListener('mousedown', handleOutside);
     document.addEventListener('keydown', handleKey);
     return () => {
       document.removeEventListener('mousedown', handleOutside);
       document.removeEventListener('keydown', handleKey);
+      stopWatching();
     };
   });
 </script>
@@ -169,6 +198,24 @@
           >
             <span aria-hidden="true">＋</span> New document
           </button>
+          {#if fileAccessSupported}
+            <button
+              class="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md hover:bg-base-300 text-sm"
+              disabled={busy}
+              onclick={openFromDisk}
+            >
+              <span aria-hidden="true">📂</span> Open file…
+            </button>
+            <button
+              class="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md hover:bg-base-300 text-sm"
+              disabled={busy}
+              onclick={saveFromMenu}
+            >
+              <span aria-hidden="true">💾</span>
+              <span class="flex-1 truncate">{activeDoc?.file ? `Save to ${activeDoc.file.name}` : 'Save to disk…'}</span>
+              <kbd class="kbd kbd-xs">Ctrl+S</kbd>
+            </button>
+          {/if}
           <button
             class="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md hover:bg-base-300 text-sm"
             disabled={busy}
@@ -229,7 +276,9 @@
                       aria-current={doc.id === $documentStore.activeId ? 'true' : undefined}
                     >
                       <span class="block text-sm truncate">{doc.title}</span>
-                      <span class="block text-xs opacity-60">{relativeTime(doc.updatedAt, now)}</span>
+                      <span class="block text-xs opacity-60 truncate">
+                        {#if doc.file}📄 {doc.file.name} · {/if}{relativeTime(doc.updatedAt, now)}
+                      </span>
                     </button>
                     <button
                       class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 focus:opacity-100"
