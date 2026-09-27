@@ -25,8 +25,16 @@ const URL = process.env.BENCH_URL ?? 'http://127.0.0.1:8080/v1';
 const MODEL = process.env.BENCH_MODEL ?? 'gemma4-e2b-qat';
 const ROUNDS = Number(process.env.BENCH_ROUNDS ?? 5);
 const OUT = process.env.BENCH_OUT ?? join(tmpdir(), 'glossly-bench-context.md');
-const CONFIGS = ['legacy', 2000, 4000, 8000] as const;
+// "4000" without the address hint isolates what the hint itself changes.
+const CONFIGS = ['legacy', '4000', '4000+hint', '8000+hint'] as const;
 type Config = (typeof CONFIGS)[number];
+
+function contextFor(cfg: Config, doc: PMNode, from: number, to: number, title: string): string | SuggestionContext {
+  if (cfg === 'legacy') return legacyContext(doc, from);
+  const context = extractContext(doc, from, to, title, parseInt(cfg, 10));
+  if (!cfg.endsWith('+hint')) delete context.address;
+  return context;
+}
 
 const schema = getSchema(schemaExtensions);
 
@@ -118,7 +126,7 @@ it('context budget bench', async () => {
     const { from, to } = locate(doc, c.selection);
     const title = firstHeading(doc);
     const contexts = new Map<Config, string | SuggestionContext>(
-      CONFIGS.map((cfg) => [cfg, cfg === 'legacy' ? legacyContext(doc, from) : extractContext(doc, from, to, title, cfg)])
+      CONFIGS.map((cfg) => [cfg, contextFor(cfg, doc, from, to, title)])
     );
     return { ...c, contexts };
   });
@@ -164,7 +172,9 @@ it('context budget bench', async () => {
   }
 
   for (const [i, c] of cases.entries()) {
-    lines.push('', `## ${i + 1}. “${c.selection}”${c.modifier ? ` — ${c.modifier}` : ''}`, '', `Watch for: ${c.watch}`, '');
+    const hinted = c.contexts.get('4000+hint');
+    const hint = typeof hinted === 'object' && hinted.address ? `, hint: ${hinted.address}` : '';
+    lines.push('', `## ${i + 1}. “${c.selection}”${c.modifier ? ` — ${c.modifier}` : ''}${hint}`, '', `Watch for: ${c.watch}`, '');
     lines.push('| config | context chars | prompt tokens | prompt ms | gen ms | wall ms |', '| --- | --- | --- | --- | --- | --- |');
     for (const cfg of CONFIGS) {
       const rs = results.get(`${i}:${cfg}`)!.filter((r) => !r.error);

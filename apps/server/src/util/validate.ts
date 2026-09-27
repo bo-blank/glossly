@@ -32,13 +32,14 @@ export function parseContext(raw: unknown): string | SuggestionContext | null {
   if (raw === undefined || raw === null) return '';
   if (typeof raw === 'string') return raw.length <= MAX_CONTEXT_CHARS ? raw : null;
   if (typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const { title, headingPath, before, after } = raw as Record<string, unknown>;
+  const { title, headingPath, before, after, address } = raw as Record<string, unknown>;
   if (typeof title !== 'string' || typeof before !== 'string' || typeof after !== 'string') return null;
   if (!Array.isArray(headingPath) || headingPath.length > MAX_HEADING_PATH) return null;
   if (!headingPath.every((h): h is string => typeof h === 'string')) return null;
   const total = title.length + before.length + after.length + headingPath.reduce((n, h) => n + h.length, 0);
   if (total > MAX_CONTEXT_CHARS) return null;
-  return { title, headingPath, before, after };
+  if (address !== undefined && address !== 'du' && address !== 'Sie') return null;
+  return { title, headingPath, before, after, ...(address && { address }) };
 }
 
 const MIN_TIMEOUT_MS = 1000;

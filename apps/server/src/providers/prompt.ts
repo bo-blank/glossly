@@ -35,11 +35,20 @@ ${LANGUAGE_RULE}`;
  * the KV cache for the longest unchanged prompt prefix, so what changes least
  * between two selections belongs nearest the (fixed) system prompt.
  */
+// Stated, not left to inference: a small model does not reliably pick the form
+// of address up from the context. Conditional on purpose — it must not tempt
+// the model into addressing anyone the original did not.
+const ADDRESS_RULES = {
+  du: 'Form of address: the text uses informal "du". If an alternative addresses someone, use "du" (dich, dir, dein), never "Sie".',
+  Sie: 'Form of address: the text uses formal "Sie". If an alternative addresses someone, use "Sie" (Ihnen, Ihr), never "du".'
+} as const;
+
 function renderContext(context: string | SuggestionContext, selectedText: string): string[] {
   if (typeof context === 'string') return [`Context:\n${context}`];
   return [
     context.title ? `Document: ${context.title}` : null,
     context.headingPath.length ? `Section: ${context.headingPath.join(' › ')}` : null,
+    context.address ? ADDRESS_RULES[context.address] : null,
     `Context:\n${context.before}⟦${selectedText}⟧${context.after}`
   ].filter((part): part is string => part !== null);
 }

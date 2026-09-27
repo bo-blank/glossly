@@ -11,6 +11,8 @@ export interface SuggestionContext {
   headingPath: string[];
   before: string;
   after: string;
+  /** German form of address, when the client could tell. */
+  address?: 'du' | 'Sie';
 }
 
 export interface SuggestionRequest {

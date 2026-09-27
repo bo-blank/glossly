@@ -3,7 +3,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { fromMarkdown } from '../editor/markdown';
 import { schemaExtensions } from '../editor/schemaExtensions';
-import { extractContext } from './contextExtraction';
+import { detectAddress, extractContext } from './contextExtraction';
 
 const schema = getSchema(schemaExtensions);
 const doc = (md: string) => fromMarkdown(md, schema);
@@ -133,5 +133,44 @@ describe('extractContext', () => {
     const md = ['# Überschrift', 'aaaa', 'MITTE'].join('\n\n');
     expect(context(md, 'MITTE', { budget: 30 }).before).toBe('aaaa\n\n');
     expect(context(md, 'MITTE', { budget: 30, title: 'x'.repeat(20) }).before).toBe('');
+  });
+});
+
+describe('detectAddress', () => {
+  const address = (md: string, selection: string) => context(md, selection).address;
+
+  it('reads the selection\'s own block first — dialogue in a novel mixes both', () => {
+    const md = ['„Du musst das nicht machen", sagte Jonas.', 'Der Fährmann nickte. „Ich dachte, Sie haben noch nichts Warmes."', 'Sie ging hinaus.'].join('\n\n');
+    expect(address(md, 'musst')).toBe('du');
+    expect(address(md, 'nickte')).toBe('Sie');
+  });
+
+  it('falls back to the document when the own block has no address', () => {
+    const md = ['Räume deinen Schreibtisch leer.', 'Nimm deinen Laptop mit.', 'Wer sie nicht einlöst, verliert sie.'].join('\n\n');
+    expect(address(md, 'einlöst')).toBe('du');
+  });
+
+  it('gives no hint when the document mixes both forms', () => {
+    const md = ['Du musst gehen, sagte er.', 'Du kannst bleiben.', 'Kommen Sie mit, sagte sie. Ich bitte Sie.', 'Die Nacht war kalt.'].join('\n\n');
+    expect(address(md, 'Nacht')).toBeUndefined();
+  });
+
+  it('needs more than one form in the document', () => {
+    expect(address('Kannst du kommen?\n\nDie Nacht war kalt.', 'Nacht')).toBeUndefined();
+  });
+
+  it('does not take sentence-initial or lowercase "sie" for formal address', () => {
+    const md = ['Sie stieg aus. Sie ging los.', 'Ihr Koffer war schwer, und sie trug ihn.', 'Die Nacht war kalt.'].join('\n\n');
+    expect(address(md, 'Nacht')).toBeUndefined();
+  });
+
+  it('counts formal address mid-sentence and after a quote', () => {
+    const md = ['Wir danken Ihnen für Ihre Nachricht.', 'Bitte senden Sie uns die Unterlagen.', 'Die Frist endet im Mai.'].join('\n\n');
+    expect(address(md, 'Frist')).toBe('Sie');
+    expect(detectAddress(doc('„Sie sind spät dran."'), '„Sie sind spät dran."')).toBeUndefined();
+  });
+
+  it('is left out of an English document', () => {
+    expect(address('Please let me know. I would like to discuss it with you.', 'discuss')).toBeUndefined();
   });
 });

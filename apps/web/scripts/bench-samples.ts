@@ -131,6 +131,23 @@ Kind regards,
 Daniel Brandt
 `;
 
+const KUNDEN = `# Kundeninformation: Umstellung auf das neue Kundenportal
+
+## Was sich für Sie ändert
+
+Ab dem 1. Juni erreichen Sie Ihre Verträge, Rechnungen und Nachrichten über unser neues Kundenportal. Ihre bisherigen Zugangsdaten bleiben gültig, Sie müssen sich also nicht neu registrieren. Bitte prüfen Sie nach der ersten Anmeldung, ob Ihre hinterlegte E-Mail-Adresse noch aktuell ist.
+
+Sollten Sie Fragen haben, erreichen Sie unseren Kundenservice werktags von 8 bis 18 Uhr. Wir helfen Ihnen gern weiter.
+
+## Technischer Hintergrund
+
+Das bisherige Portal basiert auf einer Plattform aus dem Jahr 2014, deren Hersteller die Unterstützung zum Jahresende einstellt. Die neue Plattform wird in einem Rechenzentrum in Frankfurt betrieben und erfüllt die aktuellen Anforderungen an Datensicherheit.
+
+## Umstellungswochenende
+
+Die Umstellung erfolgt am Wochenende vom 31. Mai auf den 1. Juni. In dieser Zeit ist das Portal nicht erreichbar. Wer in diesem Zeitraum eine Rechnung benötigt, fordert sie vorher an.
+`;
+
 export const BENCH_CASES: BenchCase[] = [
   {
     doc: FAEHRE,
@@ -184,6 +201,13 @@ export const BENCH_CASES: BenchCase[] = [
     modifier: 'plain',
     watch: 'the distance test: no address form within ±1 block; "du" only further up. Must not become "Sie"',
     forbid: SIE
+  },
+  {
+    doc: KUNDEN,
+    selection: 'Wer in diesem Zeitraum eine Rechnung benötigt, fordert sie vorher an',
+    modifier: 'plain',
+    watch: 'the mirror distance test: "Sie" only two sections up; must not become "du"',
+    forbid: DU
   },
   {
     // The samples above are 1–4k characters, so budgets past 4000 change nothing

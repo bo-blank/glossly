@@ -24,6 +24,13 @@ describe('parseContext', () => {
     expect(parseContext(raw)).toBeNull();
   });
 
+  it('accepts only du or Sie as the form of address', () => {
+    expect(parseContext({ ...valid, address: 'du' })).toEqual({ ...valid, address: 'du' });
+    expect(parseContext({ ...valid, address: 'Sie' })).toEqual({ ...valid, address: 'Sie' });
+    expect(parseContext({ ...valid, address: 'ihr' })).toBeNull();
+    expect(parseContext({ ...valid, address: 1 })).toBeNull();
+  });
+
   it('caps the total size', () => {
     const half = 'x'.repeat(MAX_CONTEXT_CHARS / 2);
     expect(parseContext({ ...valid, title: '', headingPath: [], before: half, after: half })).not.toBeNull();

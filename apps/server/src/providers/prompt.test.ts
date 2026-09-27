@@ -58,3 +58,24 @@ describe('structured context', () => {
     expect(system.content).toContain('⟦like this⟧');
   });
 });
+
+describe('form of address', () => {
+  const base = { title: '', headingPath: [], before: 'Wer sie nicht ', after: ', verliert sie.' };
+
+  it.each([
+    ['du', '"du"', 'never "Sie"'],
+    ['Sie', '"Sie"', 'never "du"']
+  ] as const)('states %s before the passage', (address, form, never) => {
+    const [, user] = buildMessages('einlöst', { ...base, address });
+    const line = user.content.split('\n').find((l) => l.startsWith('Form of address:'))!;
+    expect(line).toContain(form);
+    expect(line).toContain(never);
+    expect(line).toMatch(/If an alternative addresses someone/);
+    expect(user.content.indexOf('Form of address:')).toBeLessThan(user.content.indexOf('Context:'));
+  });
+
+  it('says nothing when the client could not tell', () => {
+    const [, user] = buildMessages('einlöst', base);
+    expect(user.content).not.toContain('Form of address');
+  });
+});

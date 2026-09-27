@@ -8,6 +8,53 @@ export interface SuggestionContext {
   before: string;
   /** Text after the selection, nearest first. */
   after: string;
+  /** German form of address, when the text settles it. */
+  address?: AddressForm;
+}
+
+export type AddressForm = 'du' | 'Sie';
+
+const DU_FORMS = /\b(?:du|dich|dir|dein(?:e[mnrs]?)?|euch|euer|eure[mnrs]?)\b/gi;
+// Capitalized only: lowercase "sie"/"ihnen" is she/they/them.
+const SIE_FORMS = /\b(?:Sie|Ihnen|Ihre?[mnrs]?)\b/g;
+// Sentence-initial "Sie"/"Ihr" may mean she/they/her, so only mid-sentence capitals count.
+const SENTENCE_START = /(?:^|[\n.!?:„“"»«‚‘])\s*$/;
+// A document mixing both (dialogue in a novel) gets no hint at all.
+const DOCUMENT_DOMINANCE = 3;
+
+function countAddress(text: string): { du: number; sie: number } {
+  const du = text.match(DU_FORMS)?.length ?? 0;
+  let sie = 0;
+  for (const m of text.matchAll(SIE_FORMS)) {
+    if (!SENTENCE_START.test(text.slice(Math.max(0, m.index - 4), m.index))) sie++;
+  }
+  return { du, sie };
+}
+
+const documentAddress = new WeakMap<PMNode, AddressForm | undefined>();
+
+/**
+ * A 2.6B model does not reliably infer "du" or "Sie" from thousands of
+ * characters of context (Phase 3 WP1 bench), so it is stated outright. The
+ * selection's own block decides when it uses either form at all — in a novel,
+ * different characters address each other differently. Otherwise the whole
+ * document decides, but only when one form clearly dominates.
+ */
+export function detectAddress(doc: PMNode, ownText: string): AddressForm | undefined {
+  const own = countAddress(ownText);
+  if (own.du && !own.sie) return 'du';
+  if (own.sie && !own.du) return 'Sie';
+  if (own.du || own.sie) return undefined;
+
+  // Documents are immutable: the count only changes with an edit.
+  if (!documentAddress.has(doc)) {
+    const { du, sie } = countAddress(doc.textBetween(0, doc.content.size, '\n', ' '));
+    let form: AddressForm | undefined;
+    if (du >= 2 && du >= DOCUMENT_DOMINANCE * sie) form = 'du';
+    else if (sie >= 2 && sie >= DOCUMENT_DOMINANCE * du) form = 'Sie';
+    documentAddress.set(doc, form);
+  }
+  return documentAddress.get(doc);
 }
 
 export const CONTEXT_BUDGET = 4000;
@@ -85,6 +132,7 @@ export function extractContext(doc: PMNode, from: number, to: number, title: str
   const ownEnd = blocks[last].pos + blocks[last].node.nodeSize;
   const rawBefore = doc.textBetween(ownStart, from, '\n', ' ').replace(/^\s+/, '');
   const rawAfter = doc.textBetween(to, ownEnd, '\n', ' ').replace(/\s+$/, '');
+  const address = detectAddress(doc, doc.textBetween(ownStart, ownEnd, '\n', ' '));
   const ownBudget = Math.max(0, Math.floor(remaining * OWN_BLOCK_SHARE));
   const [beforeMax, afterMax] = share(rawBefore.length, rawAfter.length, ownBudget);
   const ownBefore = tail(rawBefore, beforeMax);
@@ -131,5 +179,5 @@ export function extractContext(doc: PMNode, from: number, to: number, title: str
   // An empty own part still gets its separator: the selection then starts a new block.
   const before = [...beforeBlocks.reverse(), ownBefore].join(BLOCK_SEPARATOR);
   const after = [ownAfter, ...afterBlocks].join(BLOCK_SEPARATOR);
-  return { title, headingPath, before, after };
+  return { title, headingPath, before, after, ...(address && { address }) };
 }
