@@ -1,4 +1,4 @@
-import type { Modifier, SuggestionMode } from './types';
+import type { Modifier, SuggestionContext, SuggestionMode } from './types';
 
 const MODIFIER_INSTRUCTIONS: Record<string, string> = {
   tighter: 'Make each alternative more concise than the original — cut words without losing meaning.',
@@ -12,11 +12,14 @@ const MODIFIER_INSTRUCTIONS: Record<string, string> = {
 const LANGUAGE_RULE = `Write every alternative in the same language as the selected text, and keep the form of
 address and register the context uses (for example formal "Sie" vs. informal "du" in German).`;
 
+// Tells the model which occurrence is meant when the selected words appear twice.
+const MARKER_RULE = 'In the context, the selection is marked ⟦like this⟧.';
+
 const SYSTEM_PROMPT = `You are a quiet, precise writing editor. Given a passage of surrounding context and a
 phrase selected within it, propose exactly 3 alternative phrasings for the selected phrase that fit the
 surrounding tone, register, and rhythm. Alternatives must be able to replace the selection in place —
 same rough length and grammatical role, not a summary or expansion. Return only the phrasing itself, no
-quotation marks, no explanation, no preamble.
+quotation marks, no explanation, no preamble. ${MARKER_RULE}
 ${LANGUAGE_RULE}`;
 
 const SENTENCE_SYSTEM_PROMPT = `You are a quiet, precise writing editor. Given a passage of surrounding context and
@@ -24,12 +27,26 @@ one or more complete sentences selected within it, propose exactly 3 alternative
 Preserve the original meaning, tense, and grammatical person, and keep to roughly the same length — restructuring
 the sentence (reordering clauses, changing sentence boundaries within the selection) is allowed as long as the
 meaning and length stay close to the original. Return only the rewritten sentence(s), no quotation marks, no
-explanation, no preamble.
+explanation, no preamble. ${MARKER_RULE}
 ${LANGUAGE_RULE}`;
+
+/**
+ * Most stable first — title, then section, then the passage. llama-server reuses
+ * the KV cache for the longest unchanged prompt prefix, so what changes least
+ * between two selections belongs nearest the (fixed) system prompt.
+ */
+function renderContext(context: string | SuggestionContext, selectedText: string): string[] {
+  if (typeof context === 'string') return [`Context:\n${context}`];
+  return [
+    context.title ? `Document: ${context.title}` : null,
+    context.headingPath.length ? `Section: ${context.headingPath.join(' › ')}` : null,
+    `Context:\n${context.before}⟦${selectedText}⟧${context.after}`
+  ].filter((part): part is string => part !== null);
+}
 
 export function buildMessages(
   selectedText: string,
-  context: string,
+  context: string | SuggestionContext,
   modifier?: Modifier | string,
   previousSuggestions?: string[],
   modifierInstruction?: string,
@@ -40,7 +57,7 @@ export function buildMessages(
   const instruction = modifier ? (MODIFIER_INSTRUCTIONS[modifier] ?? modifierInstruction) : undefined;
   const isSentence = mode === 'sentence';
   const userPrompt = [
-    `Context:\n${context}`,
+    ...renderContext(context, selectedText),
     isSentence ? `Selected sentence(s): "${selectedText}"` : `Selected phrase: "${selectedText}"`,
     instruction ? `Additional instruction: ${instruction}` : null,
     previousSuggestions?.length

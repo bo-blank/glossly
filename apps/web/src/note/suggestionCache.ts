@@ -1,10 +1,12 @@
+import type { SuggestionContext } from './contextExtraction';
+
 const CAPACITY = 100;
 
 const cache = new Map<string, string[]>();
 
 export interface CacheKeyParts {
   selectedText: string;
-  context: string;
+  context: SuggestionContext | string;
   modifier?: string;
   modifierInstruction?: string;
   mode?: string;

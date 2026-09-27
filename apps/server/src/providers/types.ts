@@ -1,9 +1,22 @@
 export type Modifier = 'tighter' | 'vivid' | 'plain' | 'more';
 export type SuggestionMode = 'phrase' | 'sentence';
 
+/**
+ * Where the selection sits in the document. `before` and `after` stop at the
+ * selection itself, so the prompt can mark its exact position. Mirrored by hand
+ * in apps/web/src/note/contextExtraction.ts — there is no shared package.
+ */
+export interface SuggestionContext {
+  title: string;
+  headingPath: string[];
+  before: string;
+  after: string;
+}
+
 export interface SuggestionRequest {
   selectedText: string;
-  context: string;
+  // A plain string from clients older than Phase 3.
+  context: string | SuggestionContext;
   modifier?: Modifier | string;
   modifierInstruction?: string;
   mode?: SuggestionMode;

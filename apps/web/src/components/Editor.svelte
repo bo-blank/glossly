@@ -18,10 +18,9 @@
   import { initDocuments, saveDocument, registerEditor, documentStore } from '../storage/documentStore';
   import { storeImage, releaseImagesExcept, releaseAllImages } from '../storage/imageStore';
   import { extractBlobIds } from '../storage/blobRefs';
+  import { extractContext } from '../note/contextExtraction';
   import { scheduleDiskSync } from '../storage/fileStore';
   import FileStatus from './FileStatus.svelte';
-
-  const CONTEXT_CHAR_BUDGET = 2000;
 
   // oxlint-disable-next-line
   let element;
@@ -194,22 +193,11 @@
     return () => document.removeEventListener('mousedown', handleOutside);
   });
 
-  function extractContext(doc, from) {
-    const blocks = [];
-    let currentIndex = -1;
-    let i = 0;
-    doc.forEach((node, offset) => {
-      if (from >= offset && from <= offset + node.nodeSize) currentIndex = i;
-      blocks.push(node);
-      i++;
-    });
-
-    const parts = [];
-    for (let idx = Math.max(0, currentIndex - 1); idx <= Math.min(blocks.length - 1, currentIndex + 1); idx++) {
-      const text = blocks[idx]?.textContent?.trim();
-      if (text) parts.push(text);
-    }
-    return parts.join('\n\n').slice(0, CONTEXT_CHAR_BUDGET);
+  // Named documents only: "Untitled" tells the model nothing.
+  function activeTitle() {
+    const { documents, activeId } = get(documentStore);
+    const title = documents.find((d) => d.id === activeId)?.title ?? '';
+    return title === 'Untitled' ? '' : title;
   }
 
   function handleSelectionUpdate(ed) {
@@ -222,7 +210,7 @@
     }
 
     const selectedText = ed.state.doc.textBetween(from, to, '\n');
-    const context = extractContext(ed.state.doc, from);
+    const context = extractContext(ed.state.doc, from, to, activeTitle());
 
     let screenPos = null;
     try {

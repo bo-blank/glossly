@@ -24,3 +24,37 @@ describe('buildMessages', () => {
     expect(user.content).not.toContain('Make it longer.');
   });
 });
+
+describe('structured context', () => {
+  const context = {
+    title: 'Mein Roman',
+    headingPath: ['Kapitel 2', 'Der Bahnhof'],
+    before: 'Der Zug hielt. ',
+    after: ' und sah sich um.'
+  };
+
+  it('marks the selection where it sits in the passage', () => {
+    const [, user] = buildMessages('Sie stieg langsam aus', context);
+    expect(user.content).toContain('Context:\nDer Zug hielt. ⟦Sie stieg langsam aus⟧ und sah sich um.');
+  });
+
+  it('orders the prompt from most to least stable', () => {
+    const [, user] = buildMessages('Sie stieg langsam aus', context, 'tighter', ['Sie stieg aus']);
+    const order = ['Document: Mein Roman', 'Section: Kapitel 2 › Der Bahnhof', 'Context:', 'Selected phrase:', 'Additional instruction:', 'Already suggested'];
+    const positions = order.map((part) => user.content.indexOf(part));
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
+
+  it('leaves out an empty title and heading path', () => {
+    const [, user] = buildMessages('stieg', { title: '', headingPath: [], before: 'Sie ', after: ' aus.' });
+    expect(user.content).not.toContain('Document:');
+    expect(user.content).not.toContain('Section:');
+    expect(user.content.startsWith('Context:\nSie ⟦stieg⟧ aus.')).toBe(true);
+  });
+
+  it.each(['phrase', 'sentence'] as const)('explains the marker in %s mode', (mode) => {
+    const [system] = buildMessages('stieg', context, undefined, undefined, undefined, mode);
+    expect(system.content).toContain('⟦like this⟧');
+  });
+});

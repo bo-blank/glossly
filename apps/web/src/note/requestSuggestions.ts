@@ -5,12 +5,13 @@ import { fetchSuggestionsStream, SuggestRequestError } from '../providers/client
 import { snapToWordBoundaries } from './wordBoundary';
 import { expandToSentenceSelection } from './sentenceExpansion';
 import { cacheKey, get as cacheGet, set as cacheSet } from './suggestionCache';
+import type { SuggestionContext } from './contextExtraction';
 
 const DEBOUNCE_MS = 200;
 
 export interface SelectionInfo {
   selectedText: string;
-  context: string;
+  context: SuggestionContext;
   from: number;
   to: number;
   screenPos: { left: number; bottom: number } | null;

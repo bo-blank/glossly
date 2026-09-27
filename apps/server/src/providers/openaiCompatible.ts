@@ -28,7 +28,7 @@ import {
  *     itself, whatever the template does. 0/20 thought, 20/20 valid, ~0.55s.
  * Sending both combines the failure of the first with nothing of the second.
  */
-const NO_THINKING = { thinking_budget_tokens: 0 } as const;
+export const NO_THINKING = { thinking_budget_tokens: 0 } as const;
 
 /**
  * Hard ceiling on generation. Without it a degenerate run has nothing to stop it: on
@@ -40,7 +40,7 @@ const NO_THINKING = { thinking_budget_tokens: 0 } as const;
  * Normal completions here are 50-90 tokens, so these caps are ~4x headroom, not a
  * constraint on real answers.
  */
-const MAX_TOKENS_SUGGESTIONS = 400;
+export const MAX_TOKENS_SUGGESTIONS = 400;
 const MAX_TOKENS_AI_LIKENESS = 600;
 
 function stripReasoning(text: string): string {

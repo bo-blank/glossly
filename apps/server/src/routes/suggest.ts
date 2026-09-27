@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { openAICompatibleProvider } from '../providers/openaiCompatible';
 import { LLMProvider, SuggestError } from '../providers/types';
-import { resolveTimeout, validateLocalBaseUrl } from '../util/validate';
+import { MAX_CONTEXT_CHARS, parseContext, resolveTimeout, validateLocalBaseUrl } from '../util/validate';
 
 const providers: Record<string, LLMProvider> = {
   'openai-compatible': openAICompatibleProvider,
@@ -43,6 +43,15 @@ suggestRouter.post('/api/suggest', async (req, res) => {
     return;
   }
 
+  const parsedContext = parseContext(context);
+  if (parsedContext === null) {
+    res.status(400).json({
+      error: 'bad_response',
+      message: `context must be a string or { title, headingPath, before, after } of at most ${MAX_CONTEXT_CHARS} characters.`
+    });
+    return;
+  }
+
   const impl = providers[provider];
   if (!impl) {
     res.status(400).json({ error: 'bad_response', message: `Unknown provider "${provider}".` });
@@ -73,7 +82,7 @@ suggestRouter.post('/api/suggest', async (req, res) => {
 
   const requestInput = {
     selectedText,
-    context: typeof context === 'string' ? context : '',
+    context: parsedContext,
     modifier,
     modifierInstruction,
     mode,

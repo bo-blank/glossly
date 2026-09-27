@@ -1,9 +1,10 @@
 import type { Settings } from '../stores/settingsStore';
+import type { SuggestionContext } from '../note/contextExtraction';
 
 export interface SuggestParams {
   settings: Settings;
   selectedText: string;
-  context: string;
+  context: SuggestionContext;
   modifier?: string;
   modifierInstruction?: string;
   mode?: 'phrase' | 'sentence';
