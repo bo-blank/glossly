@@ -5,6 +5,8 @@ export interface NoteState {
   visible: boolean;
   loading: boolean;
   suggestions: string[];
+  /** The text the suggestions would replace — what the comparison view diffs against. */
+  original: string;
   error: string | null;
   position: { x: number; y: number } | null;
   // True while `error` is the "selection too long" message and the selection is still
@@ -17,6 +19,7 @@ export const noteStore = writable<NoteState>({
   visible: false,
   loading: false,
   suggestions: [],
+  original: '',
   error: null,
   position: null,
   sentenceRewriteEligible: false

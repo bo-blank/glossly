@@ -61,7 +61,7 @@ export function onSelectionChange(info: SelectionInfo | null) {
   if (!info || info.selectedText.length < MIN_LENGTH) {
     activeController?.abort();
     lastRequestKey = undefined;
-    noteStore.set({ visible: false, loading: false, suggestions: [], error: null, position: null, sentenceRewriteEligible: false });
+    noteStore.set({ visible: false, loading: false, suggestions: [], original: '', error: null, position: null, sentenceRewriteEligible: false });
     return;
   }
 
@@ -73,6 +73,7 @@ export function onSelectionChange(info: SelectionInfo | null) {
       visible: true,
       loading: false,
       suggestions: [],
+      original: info.selectedText,
       error: `That's ${info.selectedText.length} characters — select a shorter phrase (up to ${MAX_LENGTH}).`,
       position: info.screenPos ? { x: info.screenPos.left, y: info.screenPos.bottom } : null,
       sentenceRewriteEligible: sentenceEligible
@@ -165,6 +166,7 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
         visible: true,
         loading: false,
         suggestions: cached,
+        original: info.selectedText,
         error: null,
         position: info.screenPos ? { x: info.screenPos.left, y: info.screenPos.bottom } : null,
         sentenceRewriteEligible: false
@@ -181,6 +183,7 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
     visible: true,
     loading: true,
     suggestions: [],
+    original: info.selectedText,
     error: null,
     position: info.screenPos ? { x: info.screenPos.left, y: info.screenPos.bottom } : null,
     sentenceRewriteEligible: false

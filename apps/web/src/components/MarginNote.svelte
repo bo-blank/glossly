@@ -4,6 +4,7 @@
   import { noteStore, editorStore } from '../stores/noteStore';
   import { settingsStore } from '../stores/settingsStore';
   import { requestWithModifier, requestSentenceRewrite, dismiss } from '../note/requestSuggestions';
+  import { diffWords, type Segment } from '../note/wordDiff';
 
   // Tooltips say in plain words what each chip will do, for writers who don't
   // already think in terms of "register" or "concision". Custom chips show
@@ -20,6 +21,16 @@
 
   let noteRef: HTMLElement;
 
+  // Suggestions arrive whole (one SSE event each) and there are at most three,
+  // so re-diffing the list when one lands costs nothing worth caching.
+  let diffs = $derived($noteStore.suggestions.map((s) => diffWords($noteStore.original, s)));
+  // The suggestion under the mouse or keyboard focus: its removed words are
+  // struck through in the original line.
+  let activeIndex: number | null = $state(null);
+  let originalSegments: Segment[] = $derived(
+    activeIndex !== null && diffs[activeIndex] ? diffs[activeIndex].original : [{ text: $noteStore.original, kind: 'same' }]
+  );
+
   function applySuggestion(suggestion: string) {
     // Use the editor instance to replace selected text
     const editor = $editorStore.editor;
@@ -29,6 +40,9 @@
     const { from, to } = $editorStore.selection;
 
     if (from === to) return; // No selection
+    // The note keeps the previous suggestions until a new selection's debounce
+    // fires. Alt+1–3 in that window must not paste them over different text.
+    if (editor.state.doc.textBetween(from, to, '\n') !== $noteStore.original) return;
 
     // Create a transaction to replace the selected text with the suggestion
     // Use the editor's chain method for proper undo support as per §7.3
@@ -109,21 +123,32 @@
     {:else}
       <div>
         <h3 class="text-base font-semibold mb-2">Alternative Phrasings</h3>
+        {#if $noteStore.suggestions.length && $noteStore.original}
+          <!-- Visual only: each suggestion's accessible name already carries its full text. -->
+          <p class="text-xs opacity-70 mb-2 leading-snug" aria-hidden="true">
+            <span class="font-medium">Original:</span>
+            {#each originalSegments as seg}{#if seg.kind === 'removed'}<del class="diff-removed">{seg.text}</del>{:else}{seg.text}{/if}{/each}
+          </p>
+        {/if}
         {#each $noteStore.suggestions as suggestion, index}
           <div
             class="card bg-base-100 border border-base-200 rounded-lg p-3 mb-2 cursor-pointer hover:border-base-400 hover:bg-base-200 transition-all duration-150"
             role="button"
             tabindex="0"
             onclick={() => applySuggestion(suggestion)}
+            onmouseenter={() => (activeIndex = index)}
+            onmouseleave={() => (activeIndex = null)}
+            onfocus={() => (activeIndex = index)}
+            onblur={() => (activeIndex = null)}
             onkeydown={(e: KeyboardEvent) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 applySuggestion(suggestion);
               }
             }}
-            aria-label={`Apply suggestion ${index + 1}`}
+            aria-label={`Apply suggestion ${index + 1}: ${suggestion}`}
           >
-            <div class="text-sm">{suggestion}</div>
+            <div class="text-sm">{#each diffs[index]?.suggestion ?? [] as seg}{#if seg.kind === 'added'}<mark class="diff-added">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</div>
           </div>
         {/each}
         {#if $noteStore.loading}
@@ -162,3 +187,19 @@
     </button>
   </div>
 {/if}
+
+<style>
+  /* Theme colours, mixed down so the highlight stays quiet in light and dark mode. */
+  .diff-added {
+    background-color: color-mix(in oklab, var(--color-primary) 22%, transparent);
+    color: inherit;
+    border-radius: 0.2em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .diff-removed {
+    text-decoration: line-through;
+    text-decoration-color: var(--color-error);
+    text-decoration-thickness: 2px;
+  }
+</style>
