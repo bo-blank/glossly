@@ -19,7 +19,7 @@
     { label: 'New suggestions', tip: 'Three different alternatives', run: () => requestWithModifier('more') }
   ];
 
-  let noteRef: HTMLElement;
+  let noteRef: HTMLElement | undefined = $state();
 
   // Suggestions arrive whole (one SSE event each) and there are at most three,
   // so re-diffing the list when one lands costs nothing worth caching.
