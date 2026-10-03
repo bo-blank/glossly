@@ -146,3 +146,76 @@ describe('importing a README written elsewhere', () => {
     expect(linked).toBe(true);
   });
 });
+
+describe('block markers', () => {
+  const sec = (name: string, ...texts: string[]) =>
+    schema.node('section', { name }, texts.map((t) => (t.startsWith('## ') ? schema.node('heading', { level: 2 }, schema.text(t.slice(3))) : schema.node('paragraph', null, schema.text(t)))));
+  const docOf = (...sections: PMNode[]) => schema.node('doc', null, sections);
+  const names = (md: string) => {
+    const out: string[] = [];
+    fromMarkdown(md, schema).forEach((s) => void out.push(`${s.attrs.name}:${s.childCount}`));
+    return out;
+  };
+
+  it('writes no markers when the blocks follow from the headings', () => {
+    expect(toMarkdown(docOf(sec('', 'Intro'), sec('', '## A', 'eins')))).toBe('Intro\n\n## A\n\neins');
+  });
+
+  it('writes a marker before every block once one is named', () => {
+    const md = toMarkdown(docOf(sec('Einstieg', 'Intro'), sec('', '## A', 'eins')));
+    expect(md).toBe('<!-- block: Einstieg -->\n\nIntro\n\n<!-- block -->\n\n## A\n\neins');
+  });
+
+  it('writes markers for a split the headings do not explain', () => {
+    expect(toMarkdown(docOf(sec('', 'eins'), sec('', 'zwei')))).toBe('<!-- block -->\n\neins\n\n<!-- block -->\n\nzwei');
+  });
+
+  it('round-trips names and splits', () => {
+    const doc = docOf(sec('Einstieg', 'Intro'), sec('', 'mehr'), sec('These', '## A', 'eins'));
+    expect(fromMarkdown(toMarkdown(doc), schema).eq(doc)).toBe(true);
+  });
+
+  it('reads markers as block borders, not as text', () => {
+    expect(names('<!-- block: Eins -->\n\na\n\nb\n\n<!-- block: Zwei -->\n\nc')).toEqual(['Eins:2', 'Zwei:1']);
+    expect(fromMarkdown('<!-- block -->\n\na', schema).textContent).toBe('a');
+  });
+
+  it('puts text before the first marker into an unnamed block of its own', () => {
+    expect(names('vorher\n\n<!-- block: X -->\n\nnachher')).toEqual([':1', 'X:1']);
+  });
+
+  it('makes no empty block from two markers in a row', () => {
+    expect(names('<!-- block: A -->\n<!-- block: B -->\n\ntext')).toEqual(['B:1']);
+  });
+
+  it('accepts a marker with the text right under it and loose spacing', () => {
+    expect(names('<!--block:  Ein  Name  -->\ntext\n\n<!-- block-->\nmehr')).toEqual(['Ein Name:1', ':1']);
+  });
+
+  it('leaves a marker inside a code fence or a quote alone', () => {
+    const fenced = '```\n<!-- block: X -->\n```';
+    expect(names(fenced)).toEqual([':1']);
+    expect(roundTrip(fenced)).toBe(fenced);
+    expect(names('> <!-- block: X -->\n> zitiert')).toEqual([':1']);
+  });
+
+  it('keeps headings-only splitting for files without markers', () => {
+    expect(names('a\n\n## B\n\nb')).toEqual([':1', ':2']);
+  });
+
+  it('never lets a name end the comment early', () => {
+    const md = toMarkdown(docOf(sec('a --> b', 'x')));
+    expect(md.split('\n')[0]).toBe('<!-- block: a — b -->');
+    expect(fromMarkdown(md, schema).firstChild!.attrs.name).toBe('a — b');
+  });
+
+  it('shortens a name to one line of at most 60 characters', () => {
+    const long = 'x'.repeat(80);
+    expect(fromMarkdown(`<!-- block: ${long} -->\n\na`, schema).firstChild!.attrs.name).toHaveLength(60);
+    expect(names('<!-- block: zwei\nZeilen -->\n\na')).toEqual(['zwei Zeilen:1']);
+  });
+
+  it('still drops other HTML comments', () => {
+    expect(fromMarkdown('<!-- note -->\n\ntext', schema).textContent).toBe('text');
+  });
+});

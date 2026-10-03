@@ -39,6 +39,13 @@ export const Section = Node.create({
   }
 });
 
+export const SECTION_NAME_MAX = 60;
+
+/** A block name as stored: one line, trimmed, at most SECTION_NAME_MAX characters. */
+export function cleanSectionName(name: string): string {
+  return name.replace(/\s+/g, ' ').trim().slice(0, SECTION_NAME_MAX).trim();
+}
+
 /** Whether HTML was saved with blocks. Without them it predates Phase 5 and is split by rule A. */
 export function hasSectionMarkup(html: string): boolean {
   return /<section\b[^>]*\sdata-block\b/i.test(html);
@@ -72,6 +79,14 @@ export function regroupSections(doc: PMNode): PMNode {
   if (current.length) groups.push(current);
   if (groups.length === 0) return doc;
   return doc.type.create(doc.attrs, groups.map((nodes) => section.create(null, nodes)));
+}
+
+/**
+ * Whether the blocks say more than the headings do: a name, or a split that
+ * rule A would not make. Only then does Markdown need block markers (decision B).
+ */
+export function needsBlockMarkers(doc: PMNode): boolean {
+  return !regroupSections(doc).eq(doc);
 }
 
 /**

@@ -6,7 +6,7 @@ import {
   type MarkdownSerializerState
 } from 'prosemirror-markdown';
 import type { Node as PMNode, Schema } from 'prosemirror-model';
-import { regroupSections } from './section';
+import { cleanSectionName, needsBlockMarkers, regroupSections } from './section';
 
 // prosemirror-markdown's defaults target prosemirror-schema-basic (snake_case);
 // Tiptap's schema is camelCase. Everything below is re-keyed to Tiptap names.
@@ -46,12 +46,26 @@ function renderCodeBlock(state: MarkdownSerializerState, node: PMNode) {
 
 export type ImageSrcResolver = (src: string) => string;
 
-function buildSerializer(resolveImage: ImageSrcResolver) {
+// One line each, at column 0; Markdown renders them as nothing.
+const BLOCK_MARKER = /^<!--\s*block(?:\s*:\s*([\s\S]*?))?\s*-->\s*$/;
+
+function blockMarker(name: string): string {
+  // A name can't end the comment early.
+  const safe = cleanSectionName(name).replace(/--+>?/g, '—');
+  return safe ? `<!-- block: ${safe} -->` : '<!-- block -->';
+}
+
+function buildSerializer(resolveImage: ImageSrcResolver, markers: boolean) {
   return new MarkdownSerializer(
     {
       doc: (state, node) => state.renderContent(node),
-      // Blocks write no markers yet (Phase 5 WP2); their content just follows on.
-      section: (state, node) => state.renderContent(node),
+      section: (state, node) => {
+        if (markers) {
+          state.write(blockMarker(node.attrs.name));
+          state.closeBlock(node);
+        }
+        state.renderContent(node);
+      },
       paragraph: baseNodes.paragraph,
       text: baseNodes.text,
       heading: baseNodes.heading,
@@ -91,7 +105,9 @@ function buildSerializer(resolveImage: ImageSrcResolver) {
 /** Serializes a document. `resolveImage` maps a stored src to what the file should contain. */
 export function toMarkdown(doc: PMNode, resolveImage: ImageSrcResolver = (src) => src): string {
   // Tiptap lists carry no tight/loose flag; tight is what writers type.
-  return buildSerializer(resolveImage).serialize(doc, { tightLists: true });
+  // A file whose blocks follow from its headings stays free of markers, so
+  // opening and saving it changes nothing (decision B).
+  return buildSerializer(resolveImage, needsBlockMarkers(doc)).serialize(doc, { tightLists: true });
 }
 
 const tokenSpec = defaultMarkdownParser.tokens;
@@ -196,21 +212,53 @@ function neutralizeHtml(state: any) {
   state.tokens = out;
 }
 
-/** Wraps the whole document in one block; `regroupSections` splits it afterwards. */
+/**
+ * Turns top-level block markers into sections. markdown-it has already made
+ * each marker its own html_block, so one inside a code fence or a quote never
+ * matches. Without markers the whole document is one block, and
+ * `fromMarkdown` splits it by rule A. Runs before neutralizeHtml, which would
+ * drop the markers as plain comments.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function wrapInSection(state: any) {
-  state.tokens = [new state.Token('section_open', 'section', 1), ...state.tokens, new state.Token('section_close', 'section', -1)];
+function sectionsFromMarkers(state: any) {
+  const open = (name: string) => {
+    const token = new state.Token('section_open', 'section', 1);
+    token.attrSet('name', cleanSectionName(name));
+    return token;
+  };
+  const close = () => new state.Token('section_close', 'section', -1);
+  const out = [];
+  let inside: unknown[] = [];
+  let name = '';
+  let marked = false;
+  const flush = () => {
+    // A marker with nothing under it (two in a row) makes no empty block.
+    if (inside.length) out.push(open(name), ...inside, close());
+    inside = [];
+  };
+  for (const token of state.tokens) {
+    const m = token.type === 'html_block' && token.level === 0 ? BLOCK_MARKER.exec(token.content.trim()) : null;
+    if (m) {
+      flush();
+      name = m[1] ?? '';
+      marked = true;
+    } else inside.push(token);
+  }
+  flush();
+  if (out.length === 0) out.push(open(''), close());
+  state.tokens = out;
+  state.env.blockMarkers = marked;
 }
 
 export function markdownParser(schema: Schema): MarkdownParser {
   // html: true only so comments are recognised as such; neutralizeHtml makes
   // sure nothing is ever rendered as HTML.
   const tokenizer = new MarkdownIt('commonmark', { html: true }).enable('strikethrough');
+  tokenizer.core.ruler.push('glossly_sections', sectionsFromMarkers);
   tokenizer.core.ruler.push('glossly_neutralize_html', neutralizeHtml);
   tokenizer.core.ruler.push('glossly_hoist_images', hoistImages);
-  tokenizer.core.ruler.push('glossly_section', wrapInSection);
   return new MarkdownParser(schema, tokenizer, {
-    section: { block: 'section' },
+    section: { block: 'section', getAttrs: (tok) => ({ name: tok.attrGet('name') ?? '' }) },
     blockquote: tokenSpec.blockquote,
     paragraph: tokenSpec.paragraph,
     heading: tokenSpec.heading,
@@ -271,6 +319,9 @@ function toTaskItem(item: JSONNode): JSONNode {
 }
 
 export function fromMarkdown(text: string, schema: Schema): PMNode {
-  const parsed = markdownParser(schema).parse(text);
-  return regroupSections(schema.nodeFromJSON(liftTaskLists(parsed.toJSON())));
+  const env: { blockMarkers?: boolean } = {};
+  const parsed = markdownParser(schema).parse(text, env);
+  const doc = schema.nodeFromJSON(liftTaskLists(parsed.toJSON()));
+  // A file with markers says where its blocks are; one without gets rule A.
+  return env.blockMarkers ? doc : regroupSections(doc);
 }
