@@ -8,8 +8,13 @@ Glossly is a privacy-first writing assistant that provides alternative phrasings
 
 ## Key Features
 
-- **Tactical phrase suggestions** - 3 alternatives for selected text (3-220 characters)
-- **Modifier system** - Tighter, More vivid, Plainer options
+- **Tactical phrase suggestions** - 3 alternatives for selected text (3-220 characters), streamed as they arrive
+- **Context-aware** - the model sees the document title, the enclosing headings and the surrounding text, with the selection marked in place; German du/Sie is kept
+- **Modifier system** - Tighter, More vivid, Plainer, your own chips, and per-chip tuning of temperature and instruction
+- **Sentence rewrite** - widen a phrase to its whole sentence on request
+- **Comparison view** - changed words highlighted in each suggestion, removed words struck through in the original
+- **Suggestion history** - earlier alternatives for a phrase stay reachable for the session (memory only)
+- **Keyboard-only loop** - Alt+1–3 apply, Alt+N new suggestions, Esc dismiss
 - **Rich manuscript editor** - headings, lists, blockquotes, code blocks, images, links, highlights, text alignment
 - **Starter templates** - LinkedIn post, blog article, newsletter issue, cover letter, or a blank page
 - **Multiple documents** - switch, rename and delete local documents, autosaved to IndexedDB

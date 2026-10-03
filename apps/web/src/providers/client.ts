@@ -6,7 +6,6 @@ import type {
   ModifierDefaults,
   SuggestionContext,
   SuggestRequestBody,
-  SuggestResponse,
   SuggestStreamEvents
 } from '@glossly/shared';
 import type { Settings } from '../stores/settingsStore';
@@ -48,22 +47,6 @@ export class SuggestRequestError extends Error {
   }
 }
 
-export async function fetchSuggestions(params: SuggestParams): Promise<string[]> {
-  const response = await fetch('/api/suggest', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(suggestBody(params)),
-    signal: params.signal
-  });
-
-  if (!response.ok) {
-    const body = await errorBody(response);
-    throw new SuggestRequestError(body?.error ?? 'bad_response', body?.message ?? 'The request failed.');
-  }
-
-  return ((await response.json()) as SuggestResponse).suggestions;
-}
-
 export interface SuggestStreamParams extends SuggestParams {
   onSuggestion: (index: number, text: string) => void;
 }
@@ -81,7 +64,7 @@ function parseSseFrame(frame: string): { event: string; data: string } | null {
 /**
  * Streams `/api/suggest` (SSE). A response whose Content-Type isn't
  * text/event-stream is a pre-stream validation failure (bad selectedText/provider/
- * baseUrl/model) and is parsed as plain JSON, same as `fetchSuggestions`.
+ * baseUrl/model) and is parsed as plain JSON.
  */
 export async function fetchSuggestionsStream({ onSuggestion, ...params }: SuggestStreamParams): Promise<string[]> {
   const response = await fetch('/api/suggest', {
