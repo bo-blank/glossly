@@ -17,8 +17,8 @@ has a model server running, configured, warm, and trusts what Glossly does
 with the text. Phase 4 closes the gaps around that loop, all of them open
 stories in `docs/user-stories.md`:
 
-- **Setup and waiting** (P4, P5): Glossly finds the local server itself
-  (6.3), and a cold model load reads as "loading", not as a failure (5.2).
+- **Waiting** (P4, P5): a cold model load reads as "loading", not as a
+  failure (5.2). Finding the server by itself (6.3) moved to Phase 5.
 - **Trust** (P1, P3): the app shows where the text goes (4.2), and words the
   writer protects never change in a suggestion (2.4).
 - **Starting points** (P2, P5): templates in German and English, more kinds
@@ -51,9 +51,9 @@ trustworthy.
 
 ## Ground rules
 
-1. **Local-only is a hard guarantee.** Discovery (WP2) probes a fixed list
-   of loopback addresses only — never a client-supplied host, never a scan.
-   No telemetry, no CDN assets.
+1. **Local-only is a hard guarantee.** The llama-swap probe in WP3 only asks
+   the endpoint the writer configured, which the proxy has already
+   validated. No telemetry, no CDN assets.
 2. **Do not change the writer's llama-swap config.** `~/llama-swap-config/config.yaml`
    also serves Hermes, OpenCode and Pi. In particular, do not turn on
    `sendLoadingState` globally (WP3) — it injects text into every client's
@@ -86,8 +86,9 @@ trustworthy.
 
 ```
 WP0 Phase 3 close-out
-WP1 Local indicator ──> WP2 Auto-detection ──> WP3 Cold start
-                        (shared host classification; WP3 reuses WP2's server-kind probe)
+WP1 Local indicator      (done)
+WP2                      moved to Phase 5
+WP3 Cold start
 WP4 Protected words
 WP5 Templates: languages, kinds, rewrite ──> WP6 Own templates
 WP7 Grammar-check measurement            (independent; needs a free GPU)
@@ -158,59 +159,12 @@ null. The existing `validateLocalBaseUrl` tests must pass unchanged.
 
 ---
 
-## WP2 — Find the local server (#17, story 6.3)
+## WP2 — moved to Phase 5
 
-**Goal:** a first-time user with Ollama, LM Studio or llama-swap running gets
-working suggestions without opening Settings.
-
-### Design
-
-`GET /api/discover` on the proxy probes a **fixed** list, in parallel, 800 ms
-timeout each:
-
-| Candidate | Probe | Identified as |
-| --- | --- | --- |
-| `http://127.0.0.1:8080` | `GET /api/version` → JSON with `version`; `GET /running` | llama-swap |
-| `http://127.0.0.1:8080` | `GET /v1/models` (no llama-swap answer) | llama.cpp server |
-| `http://127.0.0.1:11434` | `GET /api/version` | Ollama |
-| `http://127.0.0.1:1234` | `GET /v1/models` | LM Studio |
-
-Response (`DiscoveredServer[]` in shared): `{ kind, provider, baseUrl,
-models, loaded? }`, where `loaded` is the llama-swap model currently in state
-`ready` (from `/running`).
-
-**Model preselection** (pure function, client): keep the current model if the
-server lists it; else the llama-swap model that is already loaded (no cold
-start, no VRAM swap); else the only model; else the first, and say so.
-
-**When it runs:**
-
-- On first start — no `glossly-settings` in localStorage yet.
-- From a "Find local server" button in Settings.
-- From the margin note when a request fails with `connection_refused`: the
-  error offers the same search.
-
-**Nothing found:** a plain message, no jargon: "No local model server found.
-Glossly needs one running on this computer — for example Ollama
-(ollama.com). Start it, then search again."
-
-Discovery only ever *suggests* settings when the writer already has some:
-the first-start run applies the result, every later run shows it and asks.
-
-### Tests
-
-Server: `discover()` with `fetch` stubbed per URL — each server kind, a mix,
-all down, a slow one past the timeout, a non-JSON answer on 8080. Client:
-preselection cases.
-
-### Acceptance criteria
-
-- On this machine with a fresh browser profile: Glossly picks llama-swap on
-  :8080 and the model already loaded, and the first suggestion works without
-  touching Settings.
-- With the candidate list pointed at closed ports (inject it in the test),
-  the plain message appears.
-- No probe ever goes to a host outside the fixed list (assert on the stub).
+Finding the local server (#17, story 6.3) moved to Phase 5 at the writer's
+request. Its design is kept there, below the web-app questions it depends
+on. The WP numbers here stay as they are, so commit messages keep matching
+this plan.
 
 ---
 
@@ -240,9 +194,12 @@ timeout below.
   measurement, likely 120 s, constant in shared), then the existing idle
   timeout between chunks. A stall *after* the first byte still fails fast.
 - **Status event.** If no body byte has arrived after 1.5 s, the server
-  sends `event: status` with `{ state: 'waiting' }`. If the endpoint is
-  llama-swap (WP2's probe, cached per origin), it asks `/running` once and
-  sends `{ state: 'loading', model }` when the model is `starting`. Add the
+  sends `event: status` with `{ state: 'waiting' }`. It then asks the
+  endpoint's origin for llama-swap's `/running` once (short timeout; any
+  non-llama-swap answer just means "unknown", cached per origin) and sends
+  `{ state: 'loading', model }` when the model is `starting`. Keep this
+  probe a small function of its own: Phase 5's server discovery will
+  reuse it. Add the
   event to `SuggestStreamEvents` in shared.
 - **Margin note:** "Loading gemma4-e2b-qat… the first request after a model
   switch can take a while" with elapsed seconds; Esc still cancels.
@@ -471,13 +428,75 @@ Deliverable of Phase 5's first step: a short comparison of the options and
 one spike that proves the riskiest path (likely: direct browser → llama-swap
 with streaming).
 
+### Moved from Phase 4: find the local server (#17, story 6.3)
+
+Designed for the Phase 4 architecture, where the Express proxy does the
+probing. If Phase 5 drops the proxy, the browser has to probe instead —
+subject to the same CORS and local-network-access questions as above — so
+settle those first, then adapt this design. WP3's llama-swap probe is meant
+to be reused here.
+
+**Goal:** a first-time user with Ollama, LM Studio or llama-swap running gets
+working suggestions without opening Settings.
+
+#### Design
+
+`GET /api/discover` on the proxy probes a **fixed** list, in parallel, 800 ms
+timeout each:
+
+| Candidate | Probe | Identified as |
+| --- | --- | --- |
+| `http://127.0.0.1:8080` | `GET /api/version` → JSON with `version`; `GET /running` | llama-swap |
+| `http://127.0.0.1:8080` | `GET /v1/models` (no llama-swap answer) | llama.cpp server |
+| `http://127.0.0.1:11434` | `GET /api/version` | Ollama |
+| `http://127.0.0.1:1234` | `GET /v1/models` | LM Studio |
+
+Local-only, as everywhere: only this fixed list of loopback addresses —
+never a client-supplied host, never a port scan.
+
+Response (`DiscoveredServer[]` in shared): `{ kind, provider, baseUrl,
+models, loaded? }`, where `loaded` is the llama-swap model currently in state
+`ready` (from `/running`).
+
+**Model preselection** (pure function, client): keep the current model if the
+server lists it; else the llama-swap model that is already loaded (no cold
+start, no VRAM swap); else the only model; else the first, and say so.
+
+**When it runs:**
+
+- On first start — no `glossly-settings` in localStorage yet.
+- From a "Find local server" button in Settings.
+- From the margin note when a request fails with `connection_refused`: the
+  error offers the same search.
+
+**Nothing found:** a plain message, no jargon: "No local model server found.
+Glossly needs one running on this computer — for example Ollama
+(ollama.com). Start it, then search again."
+
+Discovery only ever *suggests* settings when the writer already has some:
+the first-start run applies the result, every later run shows it and asks.
+
+#### Tests
+
+Server: `discover()` with `fetch` stubbed per URL — each server kind, a mix,
+all down, a slow one past the timeout, a non-JSON answer on 8080. Client:
+preselection cases.
+
+#### Acceptance criteria
+
+- On this machine with a fresh browser profile: Glossly picks llama-swap on
+  :8080 and the model already loaded, and the first suggestion works without
+  touching Settings.
+- With the candidate list pointed at closed ports (inject it in the test),
+  the plain message appears.
+- No probe ever goes to a host outside the fixed list (assert on the stub).
+
 ---
 
 ## Final verification checklist
 
 - [ ] `npm test` — all workspaces green
 - [ ] `npm run build` and `npx tsc --noEmit` in `apps/server`
-- [ ] Fresh browser profile: discovery picks llama-swap and the loaded model
 - [ ] After `/unload`: loading note, then suggestions
 - [ ] Protected word flagged when a suggestion drops it
 - [ ] Templates reviewed by the writer; DE/EN switch remembered

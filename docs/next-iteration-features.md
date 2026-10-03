@@ -139,10 +139,10 @@ Glossly becomes a web app (Phase 5).
 
 ---
 
-## Phase 4 (v1.4) — Setup, trust, starting points
+## Phase 4 (v1.4) — Waiting, trust, starting points
 
-Closes the gaps around the loop: finding the model, waiting for it, seeing
-where the text goes, and starting from something. Plan:
+Closes the gaps around the loop: waiting for the model, seeing where the text
+goes, and starting from something. Plan:
 `docs/plans/phase-4-v1.4.md`.
 
 ### 16. Visible local-only indicator
@@ -150,10 +150,7 @@ where the text goes, and starting from something. Plan:
 A status line shows where requests go ("local · 127.0.0.1:8080") and changes
 visibly for a LAN host.
 
-### 17. Find the local server
-
-The proxy probes a fixed list of loopback ports for llama-swap, llama.cpp,
-Ollama and LM Studio, and preselects the model that is already loaded.
+### 17. Find the local server — moved to Phase 5
 
 ### 18. Cold start reads as loading
 
@@ -191,6 +188,12 @@ model directly (CORS, local network access) or through the proxy as a
 companion, an installable PWA for the "own window" feel, and hosting that
 keeps the privacy promise. Starts with a comparison and a spike; gets its own
 plan.
+
+### 17. Find the local server (moved from Phase 4)
+
+Probe a fixed list of loopback ports for llama-swap, llama.cpp, Ollama and LM
+Studio, and preselect the model that is already loaded. Moved here because
+who does the probing — the proxy or the browser — depends on #23.
 
 ---
 

@@ -257,7 +257,7 @@ before I click them.
 Built-in chips have plain-word tooltips; custom chips show their own
 instruction (`MarginNote.svelte`).
 
-### 6.3 Works out of the box — partial, #17
+### 6.3 Works out of the box — partial, #17 (Phase 5)
 
 As P5, I want Glossly to work without knowing what an endpoint or a model is.
 
