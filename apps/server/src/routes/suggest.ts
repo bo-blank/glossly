@@ -156,7 +156,8 @@ suggestRouter.post('/api/suggest', async (req, res) => {
 
     try {
       const suggestions = await impl.streamSuggestions(requestInput, (event) => {
-        sendEvent(res, 'suggestion', { index: event.index, text: event.text });
+        if (event.type === 'status') sendEvent(res, 'status', event.status);
+        else sendEvent(res, 'suggestion', { index: event.index, text: event.text });
       });
       sendEvent(res, 'done', { suggestions });
       res.end();

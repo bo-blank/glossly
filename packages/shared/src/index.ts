@@ -100,9 +100,18 @@ export interface SuggestResponse {
   suggestions: string[];
 }
 
+/**
+ * Why a streamed request has no answer yet. `busy`: the server is still
+ * answering another model's request (llama-swap swaps only after it
+ * finishes). `loading`: our model is being loaded. `waiting`: no answer yet,
+ * cause unknown.
+ */
+export type LoadStatus = { state: 'waiting' } | { state: 'loading'; model: string } | { state: 'busy'; model: string };
+
 /** SSE events of a streamed POST /api/suggest, by event name. */
 export interface SuggestStreamEvents {
   suggestion: { index: number; text: string };
+  status: LoadStatus;
   done: SuggestResponse;
   error: ApiError;
 }

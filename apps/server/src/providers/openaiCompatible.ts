@@ -1,4 +1,5 @@
 import { AI_LIKENESS_JSON_SCHEMA, AI_LIKENESS_LABELS, buildAiLikenessMessages, buildMessages, SUGGESTIONS_JSON_SCHEMA } from './prompt';
+import { probeLoadState } from './llamaSwap';
 import { extractSuggestions } from './streamParse';
 import {
   AiLikenessRequest,
@@ -6,7 +7,8 @@ import {
   LLMProvider,
   SuggestError,
   SuggestionRequest,
-  SuggestionStreamEvent
+  SuggestionStreamEvent,
+  type StreamTiming
 } from './types';
 
 /**
@@ -31,6 +33,13 @@ import {
 export const NO_THINKING = { thinking_budget_tokens: 0 } as const;
 
 export const DEFAULT_TEMPERATURE = 0.8;
+
+/**
+ * 180 s: a swap waits for the other model's answer to finish (measured: a 27B
+ * answer held an e2b request for 29 s, and Hermes turns run 55–122 s), then
+ * loads ours (e2b 2.4 s, qwen38-27b 5.3 s with the file cached).
+ */
+export const STREAM_TIMING: StreamTiming = { loadTimeoutMs: 180_000, statusDelayMs: 1500, statusPollMs: 1000 };
 
 /**
  * Hard ceiling on generation. Without it a degenerate run has nothing to stop it: on
@@ -179,19 +188,48 @@ export const openAICompatibleProvider: LLMProvider = {
     return parseSuggestions(content);
   },
 
-  async streamSuggestions(input: SuggestionRequest, emit: (event: SuggestionStreamEvent) => void): Promise<string[]> {
+  async streamSuggestions(
+    input: SuggestionRequest,
+    emit: (event: SuggestionStreamEvent) => void,
+    timing: StreamTiming = STREAM_TIMING
+  ): Promise<string[]> {
     const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
 
     const timeoutController = new AbortController();
-    // Idle timeout: every chunk received off the wire proves the upstream is still
-    // alive and pushes the deadline back out, so a slow-but-steady stream isn't killed —
-    // only a stall (no bytes for `timeout` ms) trips it.
-    let timer = setTimeout(() => timeoutController.abort(), timeout);
+    // Two phases. Until the model's first real chunk, a model swap or load may be
+    // in progress: wait up to loadTimeoutMs and say why (status events). After it,
+    // an idle timeout: every chunk pushes the deadline back out, so a slow-but-steady
+    // stream isn't killed — only a stall (no bytes for `timeout` ms) trips it.
+    let modelAnswering = false;
+    let timer = setTimeout(() => timeoutController.abort(), timing.loadTimeoutMs);
     const resetIdleTimer = () => {
       clearTimeout(timer);
       timer = setTimeout(() => timeoutController.abort(), timeout);
     };
     signal.addEventListener('abort', () => timeoutController.abort());
+    const timeoutError = () =>
+      modelAnswering
+        ? new SuggestError('timeout', 'The local model took too long to respond.')
+        : new SuggestError('timeout', `The model server did not start answering within ${Math.round(timing.loadTimeoutMs / 1000)} seconds.`);
+
+    // Status while nothing has come back: "waiting", refined by llama-swap's /running.
+    let lastStatus = '';
+    let statusTimer: ReturnType<typeof setTimeout> | undefined;
+    const reportStatus = async () => {
+      if (modelAnswering || timeoutController.signal.aborted) return;
+      const status = (await probeLoadState(baseUrl, model, timeoutController.signal)) ?? { state: 'waiting' as const };
+      if (modelAnswering || timeoutController.signal.aborted) return;
+      const key = JSON.stringify(status);
+      if (key !== lastStatus) emit({ type: 'status', status });
+      lastStatus = key;
+      statusTimer = setTimeout(reportStatus, timing.statusPollMs);
+    };
+    statusTimer = setTimeout(reportStatus, timing.statusDelayMs);
+    const modelStarted = () => {
+      if (modelAnswering) return;
+      modelAnswering = true;
+      clearTimeout(statusTimer);
+    };
 
     let response: Response;
     try {
@@ -214,9 +252,8 @@ export const openAICompatibleProvider: LLMProvider = {
       });
     } catch (err) {
       clearTimeout(timer);
-      if (timeoutController.signal.aborted && !signal.aborted) {
-        throw new SuggestError('timeout', 'The local model took too long to respond.');
-      }
+      clearTimeout(statusTimer);
+      if (timeoutController.signal.aborted && !signal.aborted) throw timeoutError();
       if (signal.aborted) {
         throw err; // superseded request — let the caller treat this as an abort, not a failure
       }
@@ -225,10 +262,12 @@ export const openAICompatibleProvider: LLMProvider = {
 
     if (!response.ok) {
       clearTimeout(timer);
+      clearTimeout(statusTimer);
       throw new SuggestError('bad_response', `Local model server responded with ${response.status}.`);
     }
     if (!response.body) {
       clearTimeout(timer);
+      clearTimeout(statusTimer);
       throw new SuggestError('bad_response', 'Local model server returned an empty stream.');
     }
 
@@ -247,14 +286,14 @@ export const openAICompatibleProvider: LLMProvider = {
         try {
           next = await reader.read();
         } catch (err) {
-          if (timeoutController.signal.aborted && !signal.aborted) {
-            throw new SuggestError('timeout', 'The local model took too long to respond.');
-          }
+          if (timeoutController.signal.aborted && !signal.aborted) throw timeoutError();
           if (signal.aborted) throw err;
           throw new SuggestError('connection_refused', `Could not reach ${baseUrl}. Is the local server running?`);
         }
         if (next.done) break;
-        resetIdleTimer();
+        // Until the model answers, only the load timeout runs: llama-swap's own
+        // loading chunks (sendLoadingState) must not switch to the short idle one.
+        if (modelAnswering) resetIdleTimer();
 
         lineRemainder += decoder.decode(next.value, { stream: true });
         const lines = lineRemainder.split('\n');
@@ -273,10 +312,22 @@ export const openAICompatibleProvider: LLMProvider = {
             continue; // stray keepalive or partial frame — ignore
           }
 
-          const choice = (parsed as { choices?: { delta?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: string | null }[] })
-            ?.choices?.[0];
-          if (choice?.finish_reason) finishReason = choice.finish_reason;
+          const chunk = parsed as {
+            id?: unknown;
+            choices?: { delta?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: string | null }[];
+          };
+          const choice = chunk?.choices?.[0];
           const delta = choice?.delta;
+          // llama-swap's sendLoadingState injects its loading progress as reasoning_content,
+          // in chunks without an id; llama-server's own chunks always carry one (v262).
+          // Counting those as the model's thinking would blame reasoning for an empty
+          // answer, and as the model's start would cut the load wait short.
+          if (chunk?.id === undefined && typeof delta?.content !== 'string' && !choice?.finish_reason) continue;
+          if (!modelAnswering) {
+            modelStarted();
+            resetIdleTimer();
+          }
+          if (choice?.finish_reason) finishReason = choice.finish_reason;
           if (typeof delta?.reasoning_content === 'string' && delta.reasoning_content) sawReasoning = true;
           if (typeof delta?.content !== 'string') continue;
 
@@ -290,6 +341,8 @@ export const openAICompatibleProvider: LLMProvider = {
       }
     } finally {
       clearTimeout(timer);
+      clearTimeout(statusTimer);
+      modelAnswering = true; // stops a status probe still in flight from emitting
     }
 
     const finalSuggestions = cleanSuggestions(extractSuggestions(contentBuffer).suggestions);

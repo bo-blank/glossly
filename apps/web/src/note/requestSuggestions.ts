@@ -195,6 +195,7 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
   activeController?.abort();
   const controller = new AbortController();
   activeController = controller;
+  const requestStarted = Date.now();
 
   noteStore.set({
     visible: true,
@@ -220,18 +221,22 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
       signal: controller.signal,
       onSuggestion: (_index, text) => {
         if (controller.signal.aborted) return;
-        noteStore.update((n) => ({ ...n, suggestions: [...n.suggestions, text] }));
+        noteStore.update((n) => ({ ...n, suggestions: [...n.suggestions, text], loadStatus: undefined }));
+      },
+      onStatus: (status) => {
+        if (controller.signal.aborted) return;
+        noteStore.update((n) => ({ ...n, loadStatus: { ...status, since: n.loadStatus?.since ?? requestStarted } }));
       }
     });
 
     if (controller.signal.aborted) return;
     record(info.selectedText, suggestions, label);
     if (cKey) cacheSet(cKey, suggestions);
-    noteStore.update((n) => ({ ...n, loading: false, suggestions, error: null }));
+    noteStore.update((n) => ({ ...n, loading: false, suggestions, error: null, loadStatus: undefined }));
   } catch (err) {
     if (controller.signal.aborted) return; // superseded by a newer selection — discard silently
     const message = err instanceof SuggestRequestError ? err.message : 'Could not reach the model — try again.';
-    noteStore.update((n) => ({ ...n, loading: false, error: message }));
+    noteStore.update((n) => ({ ...n, loading: false, error: message, loadStatus: undefined }));
   }
 }
 

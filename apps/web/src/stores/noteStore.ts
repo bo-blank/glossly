@@ -1,5 +1,6 @@
 // stores/noteStore.ts
 import { writable } from 'svelte/store';
+import type { LoadStatus } from '@glossly/shared';
 
 export interface NoteState {
   visible: boolean;
@@ -13,6 +14,8 @@ export interface NoteState {
   // within sentence-mode's 600-char ceiling — offers "Rewrite as sentence(s)" instead of
   // just the plain error.
   sentenceRewriteEligible: boolean;
+  /** Set while the server reports a model swap or load; cleared by the first suggestion. */
+  loadStatus?: LoadStatus & { since: number };
 }
 
 export const noteStore = writable<NoteState>({

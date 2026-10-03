@@ -104,3 +104,28 @@ describe('requestSuggestions tuning', () => {
     }
   });
 });
+
+describe('requestSuggestions load status', () => {
+  it('shows the server-reported wait until the first suggestion arrives', async () => {
+    const seen: unknown[] = [];
+    fetchMock.mockImplementation(async ({ onStatus, onSuggestion }) => {
+      onStatus?.({ state: 'busy', model: 'qwen38-27b' });
+      seen.push(get(noteStore).loadStatus);
+      await vi.advanceTimersByTimeAsync(5000);
+      onStatus?.({ state: 'loading', model: 'gemma4-e2b-qat' });
+      seen.push(get(noteStore).loadStatus);
+      onSuggestion(0, 'a');
+      seen.push(get(noteStore).loadStatus);
+      return ['a', 'b', 'c'];
+    });
+    await select('ging langsam', 3);
+    await vi.runAllTimersAsync();
+
+    const [busy, loading, afterFirst] = seen as { state: string; since: number }[];
+    expect(busy).toMatchObject({ state: 'busy', model: 'qwen38-27b' });
+    // The clock runs from the request, not from each status change.
+    expect(loading).toMatchObject({ state: 'loading', since: busy.since });
+    expect(afterFirst).toBeUndefined();
+    expect(get(noteStore).loadStatus).toBeUndefined();
+  });
+});

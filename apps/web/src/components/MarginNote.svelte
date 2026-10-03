@@ -6,6 +6,7 @@
   import { requestWithModifier, requestSentenceRewrite, dismiss } from '../note/requestSuggestions';
   import { diffWords, type Segment } from '../note/wordDiff';
   import { forPhrase } from '../note/suggestionHistory';
+  import { loadStatusText } from '../note/loadStatusText';
 
   // Tooltips say in plain words what each chip will do, for writers who don't
   // already think in terms of "register" or "concision". Custom chips show
@@ -39,6 +40,16 @@
       .filter((e) => !$noteStore.suggestions.includes(e.text))
       .map((e) => ({ ...e, segments: diffWords($noteStore.original, e.text).suggestion }))
   );
+
+  // Seconds since the request started, ticking only while the server reports a wait.
+  let now = $state(Date.now());
+  $effect(() => {
+    if (!$noteStore.loadStatus) return;
+    now = Date.now();
+    const tick = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(tick);
+  });
+  let waitSeconds = $derived($noteStore.loadStatus ? Math.max(0, Math.round((now - $noteStore.loadStatus.since) / 1000)) : 0);
 
   function applySuggestion(suggestion: string) {
     // Use the editor instance to replace selected text
@@ -162,8 +173,15 @@
         {/each}
         {#if $noteStore.loading}
           <div class="flex items-center gap-2 py-1">
-            <span class="loading loading-spinner loading-sm"></span>
-            <span class="text-sm opacity-70">Loading...</span>
+            <span class="loading loading-spinner loading-sm shrink-0"></span>
+            {#if $noteStore.loadStatus}
+              <span class="text-sm opacity-70" role="status">
+                {loadStatusText($noteStore.loadStatus, $settingsStore.model)}
+                <span class="tabular-nums">({waitSeconds} s)</span> · Esc cancels
+              </span>
+            {:else}
+              <span class="text-sm opacity-70">Loading...</span>
+            {/if}
           </div>
         {:else}
           <div class="flex gap-2 mt-2 flex-wrap">

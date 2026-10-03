@@ -2,6 +2,7 @@ import type {
   AiLikenessRequestBody,
   AiLikenessResult,
   ApiError,
+  LoadStatus,
   ModelTarget,
   ModifierDefaults,
   SuggestionContext,
@@ -49,6 +50,8 @@ export class SuggestRequestError extends Error {
 
 export interface SuggestStreamParams extends SuggestParams {
   onSuggestion: (index: number, text: string) => void;
+  /** Why there is no answer yet — a model being loaded or swapped in. */
+  onStatus?: (status: LoadStatus) => void;
 }
 
 function parseSseFrame(frame: string): { event: string; data: string } | null {
@@ -66,7 +69,7 @@ function parseSseFrame(frame: string): { event: string; data: string } | null {
  * text/event-stream is a pre-stream validation failure (bad selectedText/provider/
  * baseUrl/model) and is parsed as plain JSON.
  */
-export async function fetchSuggestionsStream({ onSuggestion, ...params }: SuggestStreamParams): Promise<string[]> {
+export async function fetchSuggestionsStream({ onSuggestion, onStatus, ...params }: SuggestStreamParams): Promise<string[]> {
   const response = await fetch('/api/suggest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -103,6 +106,8 @@ export async function fetchSuggestionsStream({ onSuggestion, ...params }: Sugges
       if (parsed.event === 'suggestion') {
         const data = JSON.parse(parsed.data) as SuggestStreamEvents['suggestion'];
         onSuggestion(data.index, data.text);
+      } else if (parsed.event === 'status') {
+        onStatus?.(JSON.parse(parsed.data) as SuggestStreamEvents['status']);
       } else if (parsed.event === 'done') {
         finalSuggestions = (JSON.parse(parsed.data) as SuggestStreamEvents['done']).suggestions;
       } else if (parsed.event === 'error') {

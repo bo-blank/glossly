@@ -1,4 +1,4 @@
-import type { AiLikenessResult, ApiErrorKind, SuggestRequestBody } from '@glossly/shared';
+import type { AiLikenessResult, ApiErrorKind, LoadStatus, SuggestRequestBody } from '@glossly/shared';
 
 export type { AiLikenessResult, BuiltInModifier as Modifier, SuggestionContext, SuggestionMode } from '@glossly/shared';
 
@@ -35,16 +35,22 @@ export interface AiLikenessRequest {
   signal: AbortSignal;
 }
 
-export interface SuggestionStreamEvent {
-  type: 'suggestion';
-  index: number;
-  text: string;
+export type SuggestionStreamEvent = { type: 'suggestion'; index: number; text: string } | { type: 'status'; status: LoadStatus };
+
+/** How long a streamed request waits, and when it reports why. Tests shorten these. */
+export interface StreamTiming {
+  /** Until the model's first real chunk: covers a model swap or load. */
+  loadTimeoutMs: number;
+  /** No answer after this long → the first status event. */
+  statusDelayMs: number;
+  /** How often the load state is asked again while waiting. */
+  statusPollMs: number;
 }
 
 export interface LLMProvider {
   id: string;
   label: string;
   getSuggestions(input: SuggestionRequest): Promise<string[]>;
-  streamSuggestions(input: SuggestionRequest, emit: (event: SuggestionStreamEvent) => void): Promise<string[]>;
+  streamSuggestions(input: SuggestionRequest, emit: (event: SuggestionStreamEvent) => void, timing?: StreamTiming): Promise<string[]>;
   getAiLikeness(input: AiLikenessRequest): Promise<AiLikenessResult>;
 }
