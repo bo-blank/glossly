@@ -42,6 +42,24 @@ export function parseContext(raw: unknown): string | SuggestionContext | null {
   return { title, headingPath, before, after, ...(address && { address }) };
 }
 
+export const MAX_TEMPERATURE = 1.5;
+
+/** undefined when absent, null when present but not a number in 0–MAX_TEMPERATURE. */
+export function parseTemperature(raw: unknown): number | undefined | null {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0 || raw > MAX_TEMPERATURE) return null;
+  return raw;
+}
+
+export const MAX_INSTRUCTION_CHARS = 300;
+
+/** undefined when absent, null when present but not a non-blank string of at most MAX_INSTRUCTION_CHARS. */
+export function parseInstruction(raw: unknown): string | undefined | null {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== 'string' || !raw.trim() || raw.length > MAX_INSTRUCTION_CHARS) return null;
+  return raw;
+}
+
 const MIN_TIMEOUT_MS = 1000;
 const MAX_TIMEOUT_MS = 120000;
 

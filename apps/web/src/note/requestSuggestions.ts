@@ -41,7 +41,7 @@ function setSelectionSilently(ed: any, from: number, to: number) {
   }
 }
 
-const BUILT_IN_LABELS: Record<string, string> = {
+export const BUILT_IN_LABELS: Record<string, string> = {
   tighter: 'Tighter',
   vivid: 'More vivid',
   plain: 'Plainer',
@@ -142,7 +142,13 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
     }
   }
 
-  const key = `${info.from}:${info.to}:${info.selectedText}:${modifier ?? ''}:${modifierInstruction ?? ''}:${mode}`;
+  const settings = get(settingsStore);
+  // "more" is an action, not a style — never tuned.
+  const tuning = modifier && modifier !== 'more' ? settings.modifierTuning[modifier] : undefined;
+  const instructionOverride = tuning?.instruction;
+  const temperature = tuning?.temperature;
+
+  const key = `${info.from}:${info.to}:${info.selectedText}:${modifier ?? ''}:${modifierInstruction ?? ''}:${instructionOverride ?? ''}:${temperature ?? ''}:${mode}`;
   // "New suggestions" (more) is exempt from dedupe — repeating it for the same
   // selection is exactly its purpose, and each round sends the accumulated
   // previous suggestions so the model doesn't circle back to earlier wording.
@@ -155,7 +161,6 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
   const previousSuggestions = seen.length ? seen : undefined;
   const label = historyLabel(modifier, mode);
 
-  const settings = get(settingsStore);
   // "New suggestions" is exempt from caching too — its whole purpose is fresh output.
   const cKey =
     modifier !== 'more'
@@ -164,6 +169,8 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
           context: info.context,
           modifier,
           modifierInstruction,
+          instructionOverride,
+          temperature,
           mode,
           model: settings.model,
           endpointUrl: settings.endpointUrl
@@ -211,6 +218,8 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
       context: info.context,
       modifier,
       modifierInstruction,
+      instructionOverride,
+      temperature,
       mode,
       previousSuggestions,
       signal: controller.signal,

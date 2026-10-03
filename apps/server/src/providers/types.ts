@@ -21,6 +21,9 @@ export interface SuggestionRequest {
   context: string | SuggestionContext;
   modifier?: Modifier | string;
   modifierInstruction?: string;
+  /** Replaces the instruction of any style modifier, built-ins included. */
+  instructionOverride?: string;
+  temperature?: number;
   mode?: SuggestionMode;
   previousSuggestions?: string[];
   model: string;

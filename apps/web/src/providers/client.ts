@@ -7,6 +7,8 @@ export interface SuggestParams {
   context: SuggestionContext;
   modifier?: string;
   modifierInstruction?: string;
+  instructionOverride?: string;
+  temperature?: number;
   mode?: 'phrase' | 'sentence';
   previousSuggestions?: string[];
   signal: AbortSignal;
@@ -27,6 +29,8 @@ export async function fetchSuggestions({
   context,
   modifier,
   modifierInstruction,
+  instructionOverride,
+  temperature,
   mode,
   previousSuggestions,
   signal
@@ -44,6 +48,8 @@ export async function fetchSuggestions({
       context,
       modifier,
       modifierInstruction,
+      instructionOverride,
+      temperature,
       mode,
       previousSuggestions
     }),
@@ -84,6 +90,8 @@ export async function fetchSuggestionsStream({
   context,
   modifier,
   modifierInstruction,
+  instructionOverride,
+  temperature,
   mode,
   previousSuggestions,
   signal,
@@ -102,6 +110,8 @@ export async function fetchSuggestionsStream({
       context,
       modifier,
       modifierInstruction,
+      instructionOverride,
+      temperature,
       mode,
       previousSuggestions,
       stream: true
@@ -187,6 +197,18 @@ export async function fetchAiLikeness({ settings, text, signal }: AiLikenessPara
   }
 
   return body as AiLikenessResult;
+}
+
+export interface ModifierDefaults {
+  /** The built-in style chips' instructions, keyed by chip id. */
+  defaults: Record<string, string>;
+  temperature: number;
+}
+
+export async function fetchModifierDefaults(): Promise<ModifierDefaults> {
+  const response = await fetch('/api/modifiers');
+  if (!response.ok) throw new Error(`The proxy responded with ${response.status}.`);
+  return response.json();
 }
 
 export async function fetchModels(baseUrl: string, apiKey?: string): Promise<string[]> {

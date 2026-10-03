@@ -1,7 +1,17 @@
 import { Router } from 'express';
-import { openAICompatibleProvider } from '../providers/openaiCompatible';
+import { DEFAULT_TEMPERATURE, openAICompatibleProvider } from '../providers/openaiCompatible';
+import { styleDefaults } from '../providers/prompt';
 import { LLMProvider, SuggestError } from '../providers/types';
-import { MAX_CONTEXT_CHARS, parseContext, resolveTimeout, validateLocalBaseUrl } from '../util/validate';
+import {
+  MAX_CONTEXT_CHARS,
+  MAX_INSTRUCTION_CHARS,
+  MAX_TEMPERATURE,
+  parseContext,
+  parseInstruction,
+  parseTemperature,
+  resolveTimeout,
+  validateLocalBaseUrl
+} from '../util/validate';
 
 const providers: Record<string, LLMProvider> = {
   'openai-compatible': openAICompatibleProvider,
@@ -10,6 +20,11 @@ const providers: Record<string, LLMProvider> = {
 };
 
 export const suggestRouter = Router();
+
+// The tuning UI prefills from these; they live only in prompt.ts so they cannot drift.
+suggestRouter.get('/api/modifiers', (_req, res) => {
+  res.json({ defaults: styleDefaults(), temperature: DEFAULT_TEMPERATURE });
+});
 
 suggestRouter.post('/api/suggest', async (req, res) => {
   const {
@@ -21,6 +36,8 @@ suggestRouter.post('/api/suggest', async (req, res) => {
     context,
     modifier,
     modifierInstruction,
+    instructionOverride: rawInstructionOverride,
+    temperature: rawTemperature,
     mode,
     previousSuggestions,
     timeout,
@@ -40,6 +57,18 @@ suggestRouter.post('/api/suggest', async (req, res) => {
 
   if (modifierInstruction !== undefined && (typeof modifierInstruction !== 'string' || modifierInstruction.length > 300)) {
     res.status(400).json({ error: 'bad_response', message: 'modifierInstruction must be a string of at most 300 characters.' });
+    return;
+  }
+
+  const instructionOverride = parseInstruction(rawInstructionOverride);
+  if (instructionOverride === null) {
+    res.status(400).json({ error: 'bad_response', message: `instructionOverride must be a non-blank string of at most ${MAX_INSTRUCTION_CHARS} characters.` });
+    return;
+  }
+
+  const temperature = parseTemperature(rawTemperature);
+  if (temperature === null) {
+    res.status(400).json({ error: 'bad_response', message: `temperature must be a number from 0 to ${MAX_TEMPERATURE}.` });
     return;
   }
 
@@ -85,6 +114,8 @@ suggestRouter.post('/api/suggest', async (req, res) => {
     context: parsedContext,
     modifier,
     modifierInstruction,
+    instructionOverride,
+    temperature,
     mode,
     previousSuggestions: previous,
     model,

@@ -90,4 +90,14 @@ describe('suggestionCache', () => {
     expect(get(cacheKey({ ...BASE, selectedText: 'text-0' }))).toEqual(['s0']);
     expect(get(cacheKey({ ...BASE, selectedText: 'text-1' }))).toBeUndefined();
   });
+
+  it('is sensitive to a tuned temperature and instruction', () => {
+    const keys = [
+      cacheKey({ ...BASE, modifier: 'plain' }),
+      cacheKey({ ...BASE, modifier: 'plain', temperature: 0.2 }),
+      cacheKey({ ...BASE, modifier: 'plain', temperature: 1.3 }),
+      cacheKey({ ...BASE, modifier: 'plain', instructionOverride: 'Change as little as possible.' })
+    ];
+    expect(new Set(keys).size).toBe(4);
+  });
 });

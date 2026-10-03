@@ -7,6 +7,12 @@ export interface CustomModifier {
   instruction: string;
 }
 
+/** Per style chip; unset fields mean the server's defaults (temperature 0.8, built-in instruction). */
+export interface ModifierTuning {
+  temperature?: number;
+  instruction?: string;
+}
+
 export interface Settings {
   provider: 'ollama' | 'lmstudio' | 'openai-compatible';
   model: string;
@@ -14,6 +20,8 @@ export interface Settings {
   apiKey: string;
   timeout: number;
   customModifiers: CustomModifier[];
+  /** Keyed by chip id: the built-ins' tighter/vivid/plain or a custom chip's id. */
+  modifierTuning: Record<string, ModifierTuning>;
 }
 
 const STORAGE_KEY = 'glossly-settings';
@@ -24,7 +32,8 @@ const defaultSettings: Settings = {
   endpointUrl: 'http://127.0.0.1:8080/v1',
   apiKey: '',
   timeout: 10000,
-  customModifiers: []
+  customModifiers: [],
+  modifierTuning: {}
 };
 
 function loadSettings(): Settings {
@@ -38,6 +47,10 @@ function loadSettings(): Settings {
 }
 
 export const settingsStore = writable<Settings>(loadSettings());
+
+export function persistSettings(settings: Settings) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+}
 
 export function updateSettings(newSettings: Partial<Settings>) {
   settingsStore.update(s => ({ ...s, ...newSettings }));

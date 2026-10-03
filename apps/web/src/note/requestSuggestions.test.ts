@@ -8,6 +8,7 @@ vi.mock('../providers/client', () => ({
 
 import { fetchSuggestionsStream } from '../providers/client';
 import { noteStore } from '../stores/noteStore';
+import { settingsStore } from '../stores/settingsStore';
 import { onSelectionChange, requestWithModifier } from './requestSuggestions';
 import { clear as clearHistory, forPhrase } from './suggestionHistory';
 import { clear as clearCache } from './suggestionCache';
@@ -72,5 +73,34 @@ describe('requestSuggestions history', () => {
     requestWithModifier('more');
     await vi.runAllTimersAsync();
     expect(fetchMock.mock.calls.at(-1)![0].previousSuggestions).toEqual(['r3a', 'r3b', 'r3c']);
+  });
+});
+
+describe('requestSuggestions tuning', () => {
+  afterEach(() => settingsStore.update((s) => ({ ...s, modifierTuning: {} })));
+
+  it('sends a chip\'s tuning, and refetches when it changes', async () => {
+    settingsStore.update((s) => ({ ...s, modifierTuning: { plain: { temperature: 0.2, instruction: 'Change as little as possible.' } } }));
+    await select('ging langsam', 3);
+    requestWithModifier('plain');
+    await vi.runAllTimersAsync();
+    expect(fetchMock.mock.calls.at(-1)![0]).toMatchObject({ modifier: 'plain', temperature: 0.2, instructionOverride: 'Change as little as possible.' });
+
+    settingsStore.update((s) => ({ ...s, modifierTuning: { plain: { temperature: 1.3 } } }));
+    requestWithModifier('plain');
+    await vi.runAllTimersAsync();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.at(-1)![0]).toMatchObject({ temperature: 1.3, instructionOverride: undefined });
+  });
+
+  it('never tunes the default request or "New suggestions"', async () => {
+    settingsStore.update((s) => ({ ...s, modifierTuning: { more: { temperature: 1.5 } } }));
+    await select('ging langsam', 3);
+    requestWithModifier('more');
+    await vi.runAllTimersAsync();
+    for (const [body] of fetchMock.mock.calls) {
+      expect(body.temperature).toBeUndefined();
+      expect(body.instructionOverride).toBeUndefined();
+    }
   });
 });

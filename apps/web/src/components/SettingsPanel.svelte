@@ -1,8 +1,9 @@
 <!-- components/SettingsPanel.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { settingsStore } from '../stores/settingsStore';
+  import { settingsStore, persistSettings } from '../stores/settingsStore';
   import { fetchModels } from '../providers/client';
+  import TuneChips from './TuneChips.svelte';
 
   const LABEL_MAX = 24;
   const INSTRUCTION_MAX = 300;
@@ -15,8 +16,7 @@
   let newInstruction = '';
 
   function saveSettings() {
-    // Save settings locally
-    localStorage.setItem('glossly-settings', JSON.stringify($settingsStore));
+    persistSettings($settingsStore);
   }
 
   function addCustomModifier() {
@@ -32,6 +32,8 @@
 
   function deleteCustomModifier(id: string) {
     $settingsStore.customModifiers = $settingsStore.customModifiers.filter((m) => m.id !== id);
+    const { [id]: _removed, ...tuning } = $settingsStore.modifierTuning;
+    $settingsStore.modifierTuning = tuning;
     saveSettings();
   }
 
@@ -212,4 +214,8 @@
       </button>
     </div>
   </div>
+
+  <div class="divider my-1"></div>
+
+  <TuneChips />
 </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMessages, detectLanguage } from './prompt';
+import { buildMessages, detectLanguage, styleDefaults } from './prompt';
 
 const GERMAN_CONTEXT =
   'Sehr geehrte Frau Weber, vielen Dank für Ihre Nachricht. Die Ergebnisse sind in weiten Teilen zufriedenstellend.';
@@ -150,5 +150,39 @@ describe('form of address', () => {
   it('says nothing when the client could not tell', () => {
     const [, user] = buildMessages('einlöst', base);
     expect(user.content).not.toContain('Form of address');
+  });
+});
+
+describe('instruction override', () => {
+  const english = { title: 'Notes', headingPath: [], before: 'We should ', after: ' sometime next week.' };
+
+  it('replaces a built-in instruction only when given explicitly', () => {
+    const [, user] = buildMessages('grab lunch', english, 'plain', undefined, undefined, 'phrase', 'Change as little as possible.');
+    expect(user.content).toContain('Style instruction: Change as little as possible.');
+    expect(user.content).not.toContain('plainer and more direct');
+  });
+
+  it('still never lets a custom chip named "tighter" override the built-in', () => {
+    const [, user] = buildMessages('grab lunch', english, 'tighter', undefined, 'Make it longer.');
+    expect(user.content).toContain('more concise');
+    expect(user.content).not.toContain('Make it longer.');
+  });
+
+  it('replaces a custom chip instruction too', () => {
+    const [, user] = buildMessages('grab lunch', english, 'custom-id', undefined, 'Make it poetic.', 'phrase', 'Make it rhyme.');
+    expect(user.content).toContain('Style instruction: Make it rhyme.');
+    expect(user.content).not.toContain('Make it poetic.');
+  });
+
+  it('is ignored for "more" and without a modifier', () => {
+    for (const modifier of ['more', undefined]) {
+      const [, user] = buildMessages('grab lunch', english, modifier, undefined, undefined, 'phrase', 'Make it rhyme.');
+      expect(user.content).not.toContain('Make it rhyme.');
+    }
+  });
+
+  it('exposes the style defaults without the "more" action', () => {
+    expect(Object.keys(styleDefaults())).toEqual(['tighter', 'vivid', 'plain']);
+    expect(styleDefaults().tighter).toMatch(/more concise/);
   });
 });

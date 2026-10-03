@@ -7,6 +7,12 @@ const MODIFIER_INSTRUCTIONS: Record<string, string> = {
   more: 'Give 3 different alternative phrasings than before — avoid repeating the same wording or ideas.'
 };
 
+/** The built-in style chips' default instructions, for the client's tuning UI. "more" is an action, not a style. */
+export function styleDefaults(): Record<string, string> {
+  const { more: _more, ...styles } = MODIFIER_INSTRUCTIONS;
+  return styles;
+}
+
 // The system prompt is English, which small local models otherwise take as a hint
 // to answer in English even for a German selection. State the rule explicitly.
 const LANGUAGE_RULE = `Write every alternative in the same language as the selected text, and keep the form of
@@ -79,11 +85,15 @@ export function buildMessages(
   modifier?: Modifier | string,
   previousSuggestions?: string[],
   modifierInstruction?: string,
-  mode: SuggestionMode = 'phrase'
+  mode: SuggestionMode = 'phrase',
+  instructionOverride?: string
 ) {
   // Built-ins are never overridable by a custom instruction under the same id —
-  // MODIFIER_INSTRUCTIONS wins whenever the modifier key matches a known built-in.
-  const instruction = modifier ? (MODIFIER_INSTRUCTIONS[modifier] ?? modifierInstruction) : undefined;
+  // MODIFIER_INSTRUCTIONS wins whenever the modifier key matches a known built-in,
+  // so a custom chip named "tighter" cannot change it. Only an explicit
+  // instructionOverride (the writer's tuning) can, and never for "more", an action.
+  const override = modifier && modifier !== 'more' ? instructionOverride : undefined;
+  const instruction = modifier ? (override ?? MODIFIER_INSTRUCTIONS[modifier] ?? modifierInstruction) : undefined;
   // Every modifier except "more" asks for a style change, which the system prompt's
   // "fit the surrounding tone and register" would otherwise cancel out — e2b kept
   // "more formal" results as casual as the context. Language, form of address and

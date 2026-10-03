@@ -9,13 +9,15 @@ export interface CacheKeyParts {
   context: SuggestionContext | string;
   modifier?: string;
   modifierInstruction?: string;
+  instructionOverride?: string;
+  temperature?: number;
   mode?: string;
   model: string;
   endpointUrl: string;
 }
 
-export function cacheKey({ selectedText, context, modifier, modifierInstruction, mode, model, endpointUrl }: CacheKeyParts): string {
-  return JSON.stringify([selectedText, context, modifier ?? '', modifierInstruction ?? '', mode ?? '', model, endpointUrl]);
+export function cacheKey({ selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, model, endpointUrl }: CacheKeyParts): string {
+  return JSON.stringify([selectedText, context, modifier ?? '', modifierInstruction ?? '', instructionOverride ?? '', temperature ?? '', mode ?? '', model, endpointUrl]);
 }
 
 export function get(key: string): string[] | undefined {

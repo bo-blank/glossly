@@ -30,6 +30,8 @@ import {
  */
 export const NO_THINKING = { thinking_budget_tokens: 0 } as const;
 
+export const DEFAULT_TEMPERATURE = 0.8;
+
 /**
  * Hard ceiling on generation. Without it a degenerate run has nothing to stop it: on
  * 2026-09-20 a streamed suggestion request reached 35,757 tokens and was still going,
@@ -127,7 +129,7 @@ export const openAICompatibleProvider: LLMProvider = {
   label: 'OpenAI-compatible (local)',
 
   async getSuggestions(input: SuggestionRequest): Promise<string[]> {
-    const { selectedText, context, modifier, modifierInstruction, mode, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
+    const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
 
     const timeoutController = new AbortController();
     const timer = setTimeout(() => timeoutController.abort(), timeout);
@@ -143,9 +145,9 @@ export const openAICompatibleProvider: LLMProvider = {
         },
         body: JSON.stringify({
           model,
-          messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode),
+          messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode, instructionOverride),
           response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
-          temperature: 0.8,
+          temperature: temperature ?? DEFAULT_TEMPERATURE,
           max_tokens: MAX_TOKENS_SUGGESTIONS,
           ...NO_THINKING
         }),
@@ -178,7 +180,7 @@ export const openAICompatibleProvider: LLMProvider = {
   },
 
   async streamSuggestions(input: SuggestionRequest, emit: (event: SuggestionStreamEvent) => void): Promise<string[]> {
-    const { selectedText, context, modifier, modifierInstruction, mode, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
+    const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
 
     const timeoutController = new AbortController();
     // Idle timeout: every chunk received off the wire proves the upstream is still
@@ -201,9 +203,9 @@ export const openAICompatibleProvider: LLMProvider = {
         },
         body: JSON.stringify({
           model,
-          messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode),
+          messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode, instructionOverride),
           response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
-          temperature: 0.8,
+          temperature: temperature ?? DEFAULT_TEMPERATURE,
           stream: true,
           max_tokens: MAX_TOKENS_SUGGESTIONS,
           ...NO_THINKING
