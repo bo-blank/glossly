@@ -16,7 +16,7 @@ Glossly is a privacy-first writing assistant that provides alternative phrasings
 - **Suggestion history** - earlier alternatives for a phrase stay reachable for the session (memory only)
 - **Keyboard-only loop** - Alt+1–3 apply, Alt+N new suggestions, Esc dismiss
 - **Rich manuscript editor** - headings, lists, blockquotes, code blocks, images, links, highlights, text alignment
-- **Starter templates** - LinkedIn post, blog article, newsletter issue, cover letter, or a blank page
+- **Starter templates** - ten kinds of text in German and English (e-mail, cover letter, meeting notes, LinkedIn post, video script, blog article, newsletter, essay, short story scene, blank page), each a concrete example with a structure guide beside the document
 - **Multiple documents** - switch, rename and delete local documents, autosaved to IndexedDB
 - **Real files** - open and save Markdown files on disk with Ctrl+S (Chromium); Markdown import/export everywhere
 - **Table of contents** - clickable heading navigation

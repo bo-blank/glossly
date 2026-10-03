@@ -13,6 +13,15 @@ export interface DocMeta {
   file?: FileLink;
   /** Words suggestions must keep (Phase 4 WP4). Lives here, not in the Markdown file. */
   protectedTerms?: string[];
+  /** The template the document started from, for its structure guide (Phase 4 WP5). */
+  template?: TemplateOrigin;
+}
+
+export interface TemplateOrigin {
+  id: string;
+  language: 'de' | 'en';
+  /** The writer closed the structure guide; it stays closed for this document. */
+  guideClosed?: boolean;
 }
 
 /** A document opened from or saved to disk. The handle survives structured clone, not JSON. */

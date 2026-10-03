@@ -8,6 +8,7 @@ import {
   putDocumentMeta,
   putFileLink,
   type DocMeta,
+  type TemplateOrigin,
   type FileLink
 } from './db';
 import { DEFAULT_DOC_ID, LEGACY_DOC_KEY, LEGACY_UPDATED_KEY, migrateFromLocalStorage, newMeta } from './migrate';
@@ -325,15 +326,29 @@ export function activeProtectedTerms(state: DocumentState = get(documentStore)):
   return state.documents.find((d) => d.id === state.activeId)?.protectedTerms ?? [];
 }
 
-export function setProtectedTerms(id: string, terms: string[]): Promise<void> {
+/** Changes metadata that is not the text itself — updatedAt stays, like a rename. */
+function patchMeta(id: string, patch: Partial<DocMeta>): Promise<void> {
   return serial(async () => {
     const current = get(documentStore).documents.find((d) => d.id === id);
     if (!current) return;
-    const meta: DocMeta = { ...current, protectedTerms: terms };
+    const meta: DocMeta = { ...current, ...patch };
     await putDocumentMeta(meta);
-    // Not an edit of the text: updatedAt stays, like a rename.
     documentStore.update((s) => ({ ...s, documents: replaceListed(s.documents, meta) }));
   });
+}
+
+export function setProtectedTerms(id: string, terms: string[]): Promise<void> {
+  return patchMeta(id, { protectedTerms: terms });
+}
+
+/** Which template a document started from; undefined for none (the blank page, an import). */
+export function setTemplateOrigin(id: string, origin: TemplateOrigin | undefined): Promise<void> {
+  return patchMeta(id, { template: origin });
+}
+
+export function closeStructureGuide(id: string): Promise<void> {
+  const current = get(documentStore).documents.find((d) => d.id === id)?.template;
+  return current ? patchMeta(id, { template: { ...current, guideClosed: true } }) : Promise.resolve();
 }
 
 /** Deleting the active document lands on the most recent remaining one, or a fresh blank one. */

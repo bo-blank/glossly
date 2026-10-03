@@ -5,11 +5,13 @@
     documentStore,
     switchDocument,
     createDocument,
+    setTemplateOrigin,
     renameDocument,
     removeDocument,
     relativeTime,
   } from '../storage/documentStore';
-  import { STARTER_TEMPLATES } from '../editor/templates';
+  import { BLANK_TEMPLATE_ID } from '../editor/templates';
+  import TemplatePicker from './TemplatePicker.svelte';
   import ProtectedWords from './ProtectedWords.svelte';
   import { editorStore } from '../stores/noteStore';
   import {
@@ -80,8 +82,12 @@
     if (await run(() => switchDocument(id), 'Could not save the current document, so it stayed open.')) close();
   }
 
-  async function create(template) {
-    if (await run(() => createDocument(template.content), 'Could not create the document.')) close();
+  async function create(template, language) {
+    const created = await run(async () => {
+      const id = await createDocument(template.content);
+      if (template.id !== BLANK_TEMPLATE_ID) await setTemplateOrigin(id, { id: template.id, language });
+    }, 'Could not create the document.');
+    if (created) close();
   }
 
   async function exportMarkdown() {
@@ -181,16 +187,7 @@
       <div class="absolute left-0 top-full mt-1 p-2 w-80 max-w-[calc(100vw-2rem)] bg-base-200 border border-base-300 rounded-lg shadow-lg z-[100]" role="menu">
         {#if view === 'new'}
           <button class="btn btn-ghost btn-xs mb-1" onclick={() => (view = 'list')}>← Documents</button>
-          {#each STARTER_TEMPLATES as template}
-            <button
-              class="block w-full text-left px-3 py-2 rounded-md hover:bg-base-300 transition-colors"
-              disabled={busy}
-              onclick={() => create(template)}
-            >
-              <span class="block text-sm">{template.name}</span>
-              <span class="block text-xs opacity-60">{template.blurb}</span>
-            </button>
-          {/each}
+          <TemplatePicker onchoose={create} disabled={busy} />
         {:else if view === 'protected'}
           <button class="btn btn-ghost btn-xs mb-1" onclick={() => (view = 'list')}>← Documents</button>
           <p class="text-sm font-medium px-3 pb-1">Protected words in “{activeTitle}”</p>

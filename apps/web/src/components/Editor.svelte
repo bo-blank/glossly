@@ -13,9 +13,10 @@
   import { onSelectionChange, dismiss } from '../note/requestSuggestions';
   import { ReadabilityHighlight } from '../note/readabilityHighlight';
   import { computeReadability } from '../utils/readability';
-  import { STARTER_TEMPLATES, isDocumentDisposable } from '../editor/templates';
+  import { BLANK_TEMPLATE_ID, isDocumentDisposable } from '../editor/templates';
+  import TemplatePicker from './TemplatePicker.svelte';
   import { loadHintSeen, saveHintSeen, placeholderFor } from '../editor/firstRunHint';
-  import { initDocuments, saveDocument, registerEditor, documentStore } from '../storage/documentStore';
+  import { initDocuments, saveDocument, registerEditor, documentStore, setTemplateOrigin } from '../storage/documentStore';
   import { storeImage, releaseImagesExcept, releaseAllImages } from '../storage/imageStore';
   import { extractBlobIds } from '../storage/blobRefs';
   import { extractContext } from '../note/contextExtraction';
@@ -129,16 +130,19 @@
     }
   }
 
-  function chooseTemplate(template) {
+  function chooseTemplate(template, language) {
     if (isDocumentDisposable(editor.getText())) {
-      applyTemplate(template);
+      applyTemplate({ template, language });
       return;
     }
-    pendingTemplate = template;
+    pendingTemplate = { template, language };
   }
 
-  function applyTemplate(template) {
+  function applyTemplate({ template, language }) {
     editor.chain().focus().setContent(template.content, { emitUpdate: true }).run();
+    // The structure guide follows the document's template; the blank page has none.
+    const id = get(documentStore).activeId;
+    void setTemplateOrigin(id, template.id === BLANK_TEMPLATE_ID ? undefined : { id: template.id, language });
     templateOpen = false;
     pendingTemplate = null;
   }
@@ -679,13 +683,14 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         {#if templateOpen}
+          <!-- Bounded by the window: the toolbar sits lower when the structure guide is open above it. -->
           <div
-            class="fixed p-2 w-72 bg-base-200 border border-base-300 rounded-lg shadow-lg z-[100]"
-            style="left: {templatePos.x}px; top: {templatePos.y}px;"
+            class="fixed p-2 w-72 bg-base-200 border border-base-300 rounded-lg shadow-lg z-[100] overflow-y-auto"
+            style="left: {templatePos.x}px; top: {templatePos.y}px; max-height: calc(100vh - {templatePos.y}px - 1rem);"
           >
             {#if pendingTemplate}
               <div class="px-3 py-2 text-sm">
-                <p class="font-medium">Replace your draft with “{pendingTemplate.name}”?</p>
+                <p class="font-medium">Replace your draft with “{pendingTemplate.template.name}”?</p>
                 <p class="opacity-60 text-xs mt-1">Your current text is swapped out. ⌘Z brings it back.</p>
               </div>
               <div class="flex gap-1 px-1 pt-1">
@@ -699,15 +704,7 @@
                 >Cancel</button>
               </div>
             {:else}
-              {#each STARTER_TEMPLATES as template}
-                <button
-                  onclick={() => chooseTemplate(template)}
-                  class="block w-full text-left px-3 py-2 rounded-md hover:bg-base-300 transition-colors"
-                >
-                  <span class="block text-sm">{template.name}</span>
-                  <span class="block text-xs opacity-60">{template.blurb}</span>
-                </button>
-              {/each}
+              <TemplatePicker onchoose={chooseTemplate} />
             {/if}
           </div>
         {/if}

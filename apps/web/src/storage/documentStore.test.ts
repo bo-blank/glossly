@@ -195,6 +195,33 @@ describe('protected words', () => {
   });
 });
 
+describe('template origin', () => {
+  it('remembers the template per document, and a closed guide stays closed', async () => {
+    await ds.initDocuments('<p>a</p>');
+    const id = await ds.createDocument('<h1>Blog</h1>');
+    await ds.setTemplateOrigin(id, { id: 'blog-article', language: 'de' });
+    expect(state().documents.find((d) => d.id === id)?.template).toEqual({ id: 'blog-article', language: 'de' });
+    expect(state().documents.find((d) => d.id === 'default')?.template).toBeUndefined();
+
+    await ds.closeStructureGuide(id);
+    await ds.saveDocument(id, '<h1>Blog, weiter</h1>');
+    vi.resetModules();
+    const fresh: Store = await import('./documentStore');
+    await fresh.initDocuments('<p>unused</p>');
+    expect(get(fresh.documentStore).documents.find((d) => d.id === id)?.template).toEqual({ id: 'blog-article', language: 'de', guideClosed: true });
+  });
+
+  it('starts over with a new template, guide open again', async () => {
+    await ds.initDocuments('<p>a</p>');
+    await ds.setTemplateOrigin('default', { id: 'essay', language: 'en' });
+    await ds.closeStructureGuide('default');
+    await ds.setTemplateOrigin('default', { id: 'scene', language: 'en' });
+    expect(state().documents[0].template).toEqual({ id: 'scene', language: 'en' });
+    await ds.setTemplateOrigin('default', undefined);
+    expect(state().documents[0].template).toBeUndefined();
+  });
+});
+
 describe('fallback', () => {
   it('stays single-document on localStorage when IndexedDB is unavailable', async () => {
     // @ts-expect-error simulate a browser without IndexedDB

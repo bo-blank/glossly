@@ -23,6 +23,8 @@ export interface Settings {
   customModifiers: CustomModifier[];
   /** Keyed by chip id: the built-ins' tighter/vivid/plain or a custom chip's id. */
   modifierTuning: Record<string, ModifierTuning>;
+  /** The template picker's language; unset follows the browser's language. */
+  templateLanguage?: 'de' | 'en';
 }
 
 const STORAGE_KEY = 'glossly-settings';

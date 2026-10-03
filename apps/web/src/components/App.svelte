@@ -7,6 +7,7 @@
   import FileConflictDialog from './FileConflictDialog.svelte';
   import MarginNote from './MarginNote.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
+  import StructureGuide from './StructureGuide.svelte';
   import TableOfContents from './TableOfContents.svelte';
   import { themeStore, toggleTheme } from '../stores/themeStore';
   import { settingsOpen } from '../stores/uiStore';
@@ -55,6 +56,9 @@
         </button>
       </div>
     </header>
+
+    <!-- Without the wide-screen side column, the structure guide sits above the editor. -->
+    <StructureGuide variant="inline" />
 
     <main class="relative min-h-[500px] bg-base-100 rounded-xl py-8">
       <TableOfContents />

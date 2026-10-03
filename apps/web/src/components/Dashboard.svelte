@@ -3,6 +3,7 @@
   import { dashboardStore, aiLikenessStore } from '../stores/dashboardStore';
   import { editorStore } from '../stores/noteStore';
   import { analyzeAiLikeness } from '../dashboard/requestAiLikeness';
+  import StructureGuide from './StructureGuide.svelte';
 
   const MIN_WORDS_FOR_ANALYSIS = 30;
 
@@ -32,6 +33,7 @@
   style="right: max(1rem, calc(50% - 320px - 16rem));"
   aria-label="Document stats"
 >
+  <StructureGuide variant="aside" />
   <div>
     <h3 class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-1.5">Stats</h3>
     <div class="flex flex-col gap-0.5 opacity-90">
