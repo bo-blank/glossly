@@ -43,6 +43,26 @@ const ADDRESS_RULES = {
   Sie: 'Form of address: the text uses formal "Sie". If an alternative addresses someone, use "Sie" (Ihnen, Ihr), never "du".'
 } as const;
 
+// Stopwords that are common in one language and (near) absent in the other.
+const STOPWORDS = {
+  German: new Set(['der', 'die', 'das', 'und', 'ist', 'nicht', 'ich', 'du', 'sie', 'wir', 'mit', 'auf', 'für', 'ein', 'eine', 'den', 'dem', 'zu', 'von', 'sich', 'auch', 'bei', 'dass', 'sind', 'wie', 'noch', 'aber', 'mich', 'dich', 'haben', 'wird']),
+  English: new Set(['the', 'and', 'is', 'not', 'we', 'you', 'with', 'for', 'to', 'of', 'that', 'are', 'be', 'this', 'it', 'on', 'should', 'have', 'will', 'our', 'your', 'at', 'but', 'was', 'can', 'would', 'they', 'my', 'from', 'next'])
+} as const;
+
+/**
+ * German or English, only when clear (≥2 hits and 2:1). A style instruction in
+ * one language pulled e2b's output into that language — a German "förmlicher"
+ * chip turned 12/15 English alternatives German. Naming the language fixed it.
+ */
+export function detectLanguage(text: string): 'German' | 'English' | null {
+  const words = text.toLowerCase().match(/[a-zäöüß']+/g) ?? [];
+  const de = words.filter((w) => STOPWORDS.German.has(w)).length;
+  const en = words.filter((w) => STOPWORDS.English.has(w)).length;
+  if (de >= 2 && de >= 2 * en) return 'German';
+  if (en >= 2 && en >= 2 * de) return 'English';
+  return null;
+}
+
 function renderContext(context: string | SuggestionContext, selectedText: string): string[] {
   if (typeof context === 'string') return [`Context:\n${context}`];
   return [
@@ -64,17 +84,30 @@ export function buildMessages(
   // Built-ins are never overridable by a custom instruction under the same id —
   // MODIFIER_INSTRUCTIONS wins whenever the modifier key matches a known built-in.
   const instruction = modifier ? (MODIFIER_INSTRUCTIONS[modifier] ?? modifierInstruction) : undefined;
+  // Every modifier except "more" asks for a style change, which the system prompt's
+  // "fit the surrounding tone and register" would otherwise cancel out — e2b kept
+  // "more formal" results as casual as the context. Language, form of address and
+  // in-place fit still hold; a German selection must not turn English because the
+  // instruction is.
+  const isStyle = instruction !== undefined && modifier !== 'more';
   const isSentence = mode === 'sentence';
+  const target = isSentence ? 'selected sentence(s)' : 'selected phrase';
+  const language = isStyle
+    ? detectLanguage(typeof context === 'string' ? context : `${context.before} ${selectedText} ${context.after}`)
+    : null;
   const userPrompt = [
     ...renderContext(context, selectedText),
     isSentence ? `Selected sentence(s): "${selectedText}"` : `Selected phrase: "${selectedText}"`,
-    instruction ? `Additional instruction: ${instruction}` : null,
+    language ? `Language: the text is ${language}. Every alternative must be in ${language}.` : null,
+    isStyle
+      ? `Style instruction: ${instruction}\nThis instruction takes priority over matching the tone and register of the context. Still write in the language of the ${target}, keep its form of address, and make each alternative fit in place of the selection.`
+      : instruction
+        ? `Additional instruction: ${instruction}`
+        : null,
     previousSuggestions?.length
       ? `Already suggested earlier (do not repeat these or close variants):\n${previousSuggestions.map((s) => `- ${s}`).join('\n')}`
       : null,
-    isSentence
-      ? 'Give exactly 3 alternative rewrites of the selected sentence(s).'
-      : 'Give exactly 3 alternative phrasings for the selected phrase.'
+    `Give exactly 3 alternative ${isSentence ? 'rewrites of' : 'phrasings for'} the ${target}${isStyle ? ', each clearly following the style instruction' : ''}.`
   ]
     .filter(Boolean)
     .join('\n\n');

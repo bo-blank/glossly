@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMessages } from './prompt';
+import { buildMessages, detectLanguage } from './prompt';
 
 const GERMAN_CONTEXT =
   'Sehr geehrte Frau Weber, vielen Dank für Ihre Nachricht. Die Ergebnisse sind in weiten Teilen zufriedenstellend.';
@@ -18,10 +18,83 @@ describe('buildMessages', () => {
     expect(user.content).toContain(`Selected phrase: "${GERMAN_SELECTION}"`);
   });
 
+  it("uses a custom chip's instruction, with the structured context too", () => {
+    const context = { title: 'Notiz', headingPath: [], before: 'We should ', after: ' sometime next week.' };
+    const [, user] = buildMessages('grab lunch', context, '463799fd-c129-433f-a8d4-91347abfc9cf', undefined, 'Make each alternative more formal in register.');
+    expect(user.content).toContain('Style instruction: Make each alternative more formal in register.');
+    expect(user.content).toContain('We should ⟦grab lunch⟧ sometime next week.');
+  });
+
   it('never lets a custom instruction override a built-in modifier', () => {
     const [, user] = buildMessages(GERMAN_SELECTION, GERMAN_CONTEXT, 'tighter', undefined, 'Make it longer.');
     expect(user.content).toContain('more concise');
     expect(user.content).not.toContain('Make it longer.');
+  });
+});
+
+describe('style choices', () => {
+  const english = { title: 'Notes', headingPath: [], before: 'We should ', after: ' sometime next week.' };
+  const german = { title: 'Mail', headingPath: [], before: 'Hi Tom, bin gerade unterwegs, ich ', after: ' bei dir.', address: 'du' as const };
+  const STYLES = [
+    'Make each alternative more formal in register.',
+    'Make each alternative casual and colloquial, like talking to a friend.',
+    'Make each alternative poetic and lyrical.',
+    'Formuliere jede Alternative deutlich förmlicher.'
+  ];
+
+  it.each(STYLES)('lets "%s" override the context register', (instruction) => {
+    const [, user] = buildMessages('grab lunch', english, 'custom-id', undefined, instruction);
+    expect(user.content).toContain(`Style instruction: ${instruction}`);
+    expect(user.content).toMatch(/takes priority over matching the tone and register/);
+    expect(user.content).toMatch(/each clearly following the style instruction\.$/);
+  });
+
+  it.each(['tighter', 'vivid', 'plain'])('treats the built-in %s as a style too', (modifier) => {
+    const [, user] = buildMessages('grab lunch', english, modifier);
+    expect(user.content).toContain('Style instruction:');
+  });
+
+  it('names the language, so a German instruction does not turn English text German', () => {
+    const [, user] = buildMessages('grab lunch', english, 'custom-id', undefined, 'Formuliere jede Alternative deutlich förmlicher.');
+    expect(user.content).toContain('Language: the text is English. Every alternative must be in English.');
+  });
+
+  it('names German for German text with an English instruction', () => {
+    const [, user] = buildMessages('melde mich später', german, 'custom-id', undefined, 'Rewrite each alternative in the voice of a pirate.');
+    expect(user.content).toContain('Language: the text is German.');
+    expect(user.content).toContain('Form of address: the text uses informal "du".');
+  });
+
+  it('keeps the style instruction in sentence mode', () => {
+    const [, user] = buildMessages('We should grab lunch.', english, 'custom-id', undefined, 'Make it poetic.', 'sentence');
+    expect(user.content).toContain('Style instruction: Make it poetic.');
+    expect(user.content).toMatch(/rewrites of the selected sentence\(s\), each clearly following the style instruction\.$/);
+  });
+
+  it('adds no style or language lines without a style modifier', () => {
+    for (const modifier of [undefined, 'more']) {
+      const [, user] = buildMessages('grab lunch', english, modifier, ['have lunch']);
+      expect(user.content).not.toContain('Style instruction:');
+      expect(user.content).not.toContain('Language:');
+      expect(user.content).toMatch(/Give exactly 3 alternative phrasings for the selected phrase\.$/);
+    }
+  });
+
+  it('ignores a custom instruction sent without a modifier id', () => {
+    const [, user] = buildMessages('grab lunch', english, undefined, undefined, 'Make it poetic.');
+    expect(user.content).not.toContain('Make it poetic.');
+  });
+});
+
+describe('detectLanguage', () => {
+  it.each([
+    ['Wir haben drei Wochen getestet und die Ergebnisse sind gut.', 'German'],
+    ['We should grab lunch sometime next week.', 'English'],
+    ['Hi Tom, bin gerade unterwegs, ich melde mich später bei dir.', 'German'],
+    ['Okay.', null],
+    ['Das Meeting mit the team and the board', null]
+  ] as const)('%s → %s', (text, expected) => {
+    expect(detectLanguage(text)).toBe(expected);
   });
 });
 
@@ -40,7 +113,7 @@ describe('structured context', () => {
 
   it('orders the prompt from most to least stable', () => {
     const [, user] = buildMessages('Sie stieg langsam aus', context, 'tighter', ['Sie stieg aus']);
-    const order = ['Document: Mein Roman', 'Section: Kapitel 2 › Der Bahnhof', 'Context:', 'Selected phrase:', 'Additional instruction:', 'Already suggested'];
+    const order = ['Document: Mein Roman', 'Section: Kapitel 2 › Der Bahnhof', 'Context:', 'Selected phrase:', 'Style instruction:', 'Already suggested'];
     const positions = order.map((part) => user.content.indexOf(part));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
