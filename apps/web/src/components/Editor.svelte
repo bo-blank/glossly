@@ -11,8 +11,9 @@
   import { tocStore } from '../stores/tocStore';
   import { dashboardStore } from '../stores/dashboardStore';
   import { onSelectionChange, dismiss } from '../note/requestSuggestions';
-  import { ReadabilityHighlight } from '../note/readabilityHighlight';
-  import { computeReadability } from '../utils/readability';
+  import { ReadabilityHighlight, setReadabilityHighlight } from '../note/readabilityHighlight';
+  import { settingsStore } from '../stores/settingsStore';
+  import { computeReadability, countWords } from '../utils/readability';
   import { BLANK_TEMPLATE_ID, isDocumentDisposable } from '../editor/templates';
   import TemplatePicker from './TemplatePicker.svelte';
   import { loadHintSeen, saveHintSeen, placeholderFor } from '../editor/firstRunHint';
@@ -46,6 +47,11 @@
   let linkPos = $state({ x: 0, y: 0 });
   let linkBtnRef = $state(null);
   let linkUrl = $state('');
+
+  // Follows the setting live; before the editor exists it just sets the flag the plugin starts from.
+  $effect(() => {
+    setReadabilityHighlight($settingsStore.readabilityHighlight, editor?.view);
+  });
 
   let templateOpen = $state(false);
   let templatePos = $state({ x: 0, y: 0 });
@@ -356,7 +362,8 @@
         ...schemaExtensions,
         Placeholder.configure({ placeholder: () => placeholderFor(hintSeen) }),
         Selection,
-        CharacterCount,
+        // The same word count as the readability highlighting: dashes are not words.
+        CharacterCount.configure({ wordCounter: countWords }),
         ReadabilityHighlight,
         TableOfContents.configure({
           getIndex: getHierarchicalIndexes,

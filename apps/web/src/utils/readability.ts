@@ -12,10 +12,13 @@ export interface ReadabilityResult {
 
 const WORDS_PER_MINUTE = 200;
 
+/**
+ * Tokens with at least one letter or digit. A free-standing dash ("–", "—"),
+ * "·" or a lone quote mark is punctuation, not a word: counted, it pushed a
+ * 14-word sentence with a dash into the yellow tier.
+ */
 export function countWords(text: string): number {
-  const trimmed = text.trim();
-  if (!trimmed) return 0;
-  return trimmed.split(/\s+/).length;
+  return text.split(/\s+/).filter((token) => /[\p{L}\p{N}]/u.test(token)).length;
 }
 
 export function countSentences(text: string): number {
@@ -36,7 +39,7 @@ export function countSyllables(word: string): number {
 }
 
 function totalSyllables(text: string): number {
-  const words = text.trim().split(/\s+/).filter(Boolean);
+  const words = text.trim().split(/\s+/).filter((token) => /[\p{L}\p{N}]/u.test(token));
   return words.reduce((sum, word) => sum + countSyllables(word), 0);
 }
 
@@ -91,12 +94,17 @@ export function splitSentences(text: string): SentenceSpan[] {
 // calibrated for English, so it misreads any other language (e.g. German's
 // naturally higher syllables-per-word). Raw word count is a much more stable,
 // language-agnostic proxy for how hard a sentence is to follow.
-const STANDARD_WORD_THRESHOLD = 14;
-const HARD_WORD_THRESHOLD = 25;
+//
+// The limits judge one sentence, not an average. dpa puts the upper end of the
+// desirable at about 20 words; Reiners' scale calls 19-25 "understandable" and
+// longer "hard". The first version marked from 15 words (an API figure for the
+// *average* sentence), which turned ordinary prose yellow.
+export const STANDARD_MIN_WORDS = 20;
+export const HARD_MIN_WORDS = 30;
 
 export function tierForSentenceLength(wordCount: number): ReadabilityTier | null {
-  if (wordCount >= HARD_WORD_THRESHOLD) return 'hard';
-  if (wordCount > STANDARD_WORD_THRESHOLD) return 'standard';
+  if (wordCount >= HARD_MIN_WORDS) return 'hard';
+  if (wordCount >= STANDARD_MIN_WORDS) return 'standard';
   return null;
 }
 

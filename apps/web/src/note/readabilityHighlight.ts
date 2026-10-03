@@ -1,7 +1,7 @@
 // note/readabilityHighlight.ts
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { splitSentences, scoreSentence } from '../utils/readability';
 
@@ -11,7 +11,19 @@ const UNSCORED_NODE_TYPES = new Set(['codeBlock', 'heading']);
 
 export const readabilityHighlightKey = new PluginKey('readabilityHighlight');
 
+// A setting, so module state: every editor follows it, and the plugin's own
+// state rebuilds from it on the next meta transaction.
+let enabled = true;
+
+/** Turns the highlighting on or off, redrawing at once if a view is given. */
+export function setReadabilityHighlight(on: boolean, view?: EditorView) {
+  if (enabled === on) return;
+  enabled = on;
+  view?.dispatch(view.state.tr.setMeta(readabilityHighlightKey, true));
+}
+
 function buildDecorations(doc: ProseMirrorNode): DecorationSet {
+  if (!enabled) return DecorationSet.empty;
   const decorations: Decoration[] = [];
 
   doc.descendants((node, pos) => {

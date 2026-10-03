@@ -6,10 +6,17 @@ import {
   countWords,
   labelForFleschScore,
   splitSentences,
+  scoreSentence,
   tierForSentenceLength
 } from './readability';
 
 describe('countWords', () => {
+  it('does not count dashes, middots or lone quote marks as words', () => {
+    expect(countWords('Die Arbeit wurde kleiner – und damit endlich abschließbar.')).toBe(8);
+    expect(countWords('Lena — Tom · „ Mara “')).toBe(3);
+    expect(countWords('Seit 2026 – mit v2.0')).toBe(4);
+  });
+
   it('returns 0 for empty or whitespace-only text', () => {
     expect(countWords('')).toBe(0);
     expect(countWords('   \n\t ')).toBe(0);
@@ -81,17 +88,23 @@ describe('splitSentences', () => {
 });
 
 describe('tierForSentenceLength', () => {
-  it('leaves short sentences unmarked', () => {
-    expect(tierForSentenceLength(14)).toBeNull();
+  it('leaves sentences under 20 words unmarked', () => {
+    expect(tierForSentenceLength(15)).toBeNull();
+    expect(tierForSentenceLength(19)).toBeNull();
   });
 
-  it('marks medium sentences as standard', () => {
-    expect(tierForSentenceLength(15)).toBe('standard');
-    expect(tierForSentenceLength(24)).toBe('standard');
+  it('marks 20 to 29 words as standard', () => {
+    expect(tierForSentenceLength(20)).toBe('standard');
+    expect(tierForSentenceLength(29)).toBe('standard');
   });
 
-  it('marks long sentences as hard', () => {
-    expect(tierForSentenceLength(25)).toBe('hard');
+  it('marks 30 words and more as hard', () => {
+    expect(tierForSentenceLength(30)).toBe('hard');
+  });
+
+  it('does not let a dash tip a sentence over the limit', () => {
+    const nineteen = 'Eins zwei drei vier fünf sechs sieben acht neun zehn – elf zwölf dreizehn vierzehn fünfzehn sechzehn siebzehn achtzehn neunzehn.';
+    expect(scoreSentence(nineteen)).toBeNull();
   });
 });
 

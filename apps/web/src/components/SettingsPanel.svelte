@@ -163,6 +163,22 @@
     />
   </div>
 
+  <div class="form-control w-full">
+    <label class="label cursor-pointer justify-start gap-3" for="readability-highlight-toggle">
+      <input
+        id="readability-highlight-toggle"
+        type="checkbox"
+        class="toggle toggle-sm"
+        bind:checked={$settingsStore.readabilityHighlight}
+        onchange={saveSettings}
+      />
+      <span class="label-text">
+        <span class="font-medium">Highlight long sentences</span>
+        <span class="block text-xs opacity-60">Yellow from 20 words, red from 30.</span>
+      </span>
+    </label>
+  </div>
+
   <div class="divider my-1"></div>
 
   <div class="form-control w-full">

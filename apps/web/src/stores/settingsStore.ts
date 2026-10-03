@@ -25,6 +25,8 @@ export interface Settings {
   modifierTuning: Record<string, ModifierTuning>;
   /** The template picker's language; unset follows the browser's language. */
   templateLanguage?: 'de' | 'en';
+  /** Yellow/red backgrounds on long sentences while writing. */
+  readabilityHighlight: boolean;
 }
 
 const STORAGE_KEY = 'glossly-settings';
@@ -36,7 +38,8 @@ const defaultSettings: Settings = {
   apiKey: '',
   timeout: 10000,
   customModifiers: [],
-  modifierTuning: {}
+  modifierTuning: {},
+  readabilityHighlight: true
 };
 
 function loadSettings(): Settings {

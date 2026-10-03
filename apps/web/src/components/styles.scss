@@ -165,7 +165,7 @@
     background-color: var(--purple-light);
   }
 
-  /* Live readability highlighting (only flags standard/hard sentences) */
+  /* Live readability highlighting: yellow from 20 words, red from 30 (utils/readability.ts) */
   .readability-standard {
     background-color: var(--readability-standard);
   }
