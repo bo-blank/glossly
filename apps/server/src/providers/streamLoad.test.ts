@@ -2,7 +2,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { openAICompatibleProvider } from './openaiCompatible';
-import type { StreamTiming, SuggestionRequest, SuggestionStreamEvent } from './types';
+import type { AiLikenessRequest, StreamTiming, SuggestionRequest, SuggestionStreamEvent } from './types';
 
 // A real local upstream: the stream's timers and fetch run for real, with
 // timings shortened from seconds to tens of milliseconds.
@@ -139,5 +139,38 @@ describe('llama-swap sendLoadingState', () => {
     });
     const { result } = await stream(url);
     expect((result as Error).message).toBe('The model hit its token limit before finishing its answer.');
+  });
+});
+
+describe('AI-likeness while the model loads', () => {
+  const LIKENESS = '{"score":40,"label":"Mixed / uncertain","rationale":"Some stock phrases."}';
+  function request(baseUrl: string): AiLikenessRequest {
+    return { text: 'x'.repeat(200), model: MODEL, baseUrl, timeout: 300, signal: new AbortController().signal };
+  }
+
+  it('waits past the idle timeout for a model swap', async () => {
+    const url = await start({
+      chat: async (res) => {
+        await sleep(600);
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write(real({ content: LIKENESS }));
+        res.write(real({}, { finish_reason: 'stop' }));
+      }
+    });
+    const result = await openAICompatibleProvider.getAiLikeness(request(url), TIMING);
+    expect(result).toMatchObject({ score: 40 });
+  });
+
+  it('still fails fast on a stall after the model started answering', async () => {
+    const url = await start({
+      chat: async (res) => {
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write(real({ content: '{"score":' }));
+        await sleep(900);
+      }
+    });
+    const started = Date.now();
+    await expect(openAICompatibleProvider.getAiLikeness(request(url), TIMING)).rejects.toThrow('The local model took too long to respond.');
+    expect(Date.now() - started).toBeLessThan(800);
   });
 });

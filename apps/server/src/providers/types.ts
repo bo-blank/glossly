@@ -50,7 +50,7 @@ export interface StreamTiming {
 export interface LLMProvider {
   id: string;
   label: string;
-  getSuggestions(input: SuggestionRequest): Promise<string[]>;
+  getSuggestions(input: SuggestionRequest, timing?: StreamTiming): Promise<string[]>;
   streamSuggestions(input: SuggestionRequest, emit: (event: SuggestionStreamEvent) => void, timing?: StreamTiming): Promise<string[]>;
-  getAiLikeness(input: AiLikenessRequest): Promise<AiLikenessResult>;
+  getAiLikeness(input: AiLikenessRequest, timing?: StreamTiming): Promise<AiLikenessResult>;
 }

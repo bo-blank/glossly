@@ -10,6 +10,7 @@ import {
   SuggestionStreamEvent,
   type StreamTiming
 } from './types';
+import type { LoadStatus } from '@glossly/shared';
 
 /**
  * Reasoning models (gemma4, qwen3.x, ...) emit a thinking pass before the answer.
@@ -133,58 +134,187 @@ function parseAiLikeness(raw: string): AiLikenessResult {
   return { score, label, rationale: obj.rationale };
 }
 
+interface CompletionRequest {
+  baseUrl: string;
+  apiKey?: string;
+  model: string;
+  /** Idle timeout once the model answers. */
+  timeout: number;
+  signal: AbortSignal;
+  /** The request body without `model` and `stream`. */
+  body: Record<string, unknown>;
+  timing: StreamTiming;
+  /** Called with the accumulated content after each content chunk. */
+  onContent?: (content: string) => void;
+  onStatus?: (status: LoadStatus) => void;
+}
+
+interface Completion {
+  content: string;
+  finishReason: string | null;
+  sawReasoning: boolean;
+}
+
+/**
+ * One streamed chat completion, used by every call — even the ones that answer
+ * the client in one piece — because only a stream can tell a model swap from a
+ * hang. Two phases: until the model's first real chunk a swap or load may be in
+ * progress, so wait up to timing.loadTimeoutMs and report why (onStatus). After
+ * it, an idle timeout: every chunk pushes the deadline back out, so a
+ * slow-but-steady stream isn't killed — only a stall (no bytes for `timeout` ms)
+ * trips it.
+ */
+async function streamCompletion({ baseUrl, apiKey, model, timeout, signal, body, timing, onContent, onStatus }: CompletionRequest): Promise<Completion> {
+  const timeoutController = new AbortController();
+  let modelAnswering = false;
+  let timer = setTimeout(() => timeoutController.abort(), timing.loadTimeoutMs);
+  const resetIdleTimer = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => timeoutController.abort(), timeout);
+  };
+  signal.addEventListener('abort', () => timeoutController.abort());
+  const timeoutError = () =>
+    modelAnswering
+      ? new SuggestError('timeout', 'The local model took too long to respond.')
+      : new SuggestError('timeout', `The model server did not start answering within ${Math.round(timing.loadTimeoutMs / 1000)} seconds.`);
+
+  // Status while nothing has come back: "waiting", refined by llama-swap's /running.
+  let lastStatus = '';
+  let statusTimer: ReturnType<typeof setTimeout> | undefined;
+  const reportStatus = async () => {
+    if (modelAnswering || timeoutController.signal.aborted) return;
+    const status = (await probeLoadState(baseUrl, model, timeoutController.signal)) ?? { state: 'waiting' as const };
+    if (modelAnswering || timeoutController.signal.aborted) return;
+    const key = JSON.stringify(status);
+    if (key !== lastStatus) onStatus?.(status);
+    lastStatus = key;
+    statusTimer = setTimeout(reportStatus, timing.statusPollMs);
+  };
+  if (onStatus) statusTimer = setTimeout(reportStatus, timing.statusDelayMs);
+  const stopTimers = () => {
+    clearTimeout(timer);
+    clearTimeout(statusTimer);
+  };
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+      },
+      body: JSON.stringify({ model, ...body, stream: true }),
+      signal: timeoutController.signal
+    });
+  } catch (err) {
+    stopTimers();
+    if (timeoutController.signal.aborted && !signal.aborted) throw timeoutError();
+    if (signal.aborted) {
+      throw err; // superseded request — let the caller treat this as an abort, not a failure
+    }
+    throw new SuggestError('connection_refused', `Could not reach ${baseUrl}. Is the local server running?`);
+  }
+
+  if (!response.ok) {
+    stopTimers();
+    throw new SuggestError('bad_response', `Local model server responded with ${response.status}.`);
+  }
+  if (!response.body) {
+    stopTimers();
+    throw new SuggestError('bad_response', 'Local model server returned an empty stream.');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let lineRemainder = '';
+  let content = '';
+  let sawReasoning = false;
+  let finishReason: string | null = null;
+
+  try {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      let next: ReadableStreamReadResult<Uint8Array>;
+      try {
+        next = await reader.read();
+      } catch (err) {
+        if (timeoutController.signal.aborted && !signal.aborted) throw timeoutError();
+        if (signal.aborted) throw err;
+        throw new SuggestError('connection_refused', `Could not reach ${baseUrl}. Is the local server running?`);
+      }
+      if (next.done) break;
+      // Until the model answers, only the load timeout runs: llama-swap's own
+      // loading chunks (sendLoadingState) must not switch to the short idle one.
+      if (modelAnswering) resetIdleTimer();
+
+      lineRemainder += decoder.decode(next.value, { stream: true });
+      const lines = lineRemainder.split('\n');
+      lineRemainder = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine.startsWith('data:')) continue;
+        const data = trimmedLine.slice('data:'.length).trim();
+        if (data === '[DONE]') continue;
+
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(data);
+        } catch {
+          continue; // stray keepalive or partial frame — ignore
+        }
+
+        const chunk = parsed as {
+          id?: unknown;
+          choices?: { delta?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: string | null }[];
+        };
+        const choice = chunk?.choices?.[0];
+        const delta = choice?.delta;
+        // llama-swap's sendLoadingState injects its loading progress as reasoning_content,
+        // in chunks without an id; llama-server's own chunks always carry one (v262).
+        // Counting those as the model's thinking would blame reasoning for an empty
+        // answer, and as the model's start would cut the load wait short.
+        if (chunk?.id === undefined && typeof delta?.content !== 'string' && !choice?.finish_reason) continue;
+        if (!modelAnswering) {
+          modelAnswering = true;
+          clearTimeout(statusTimer);
+          resetIdleTimer();
+        }
+        if (choice?.finish_reason) finishReason = choice.finish_reason;
+        if (typeof delta?.reasoning_content === 'string' && delta.reasoning_content) sawReasoning = true;
+        if (typeof delta?.content !== 'string') continue;
+
+        content += delta.content;
+        onContent?.(content);
+      }
+    }
+  } finally {
+    stopTimers();
+    modelAnswering = true; // stops a status probe still in flight from reporting
+  }
+
+  return { content, finishReason, sawReasoning };
+}
+
 export const openAICompatibleProvider: LLMProvider = {
   id: 'openai-compatible',
   label: 'OpenAI-compatible (local)',
 
-  async getSuggestions(input: SuggestionRequest): Promise<string[]> {
-    const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
-
-    const timeoutController = new AbortController();
-    const timer = setTimeout(() => timeoutController.abort(), timeout);
-    signal.addEventListener('abort', () => timeoutController.abort());
-
-    let response: Response;
-    try {
-      response = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
-        },
-        body: JSON.stringify({
-          model,
-          messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode, instructionOverride),
-          response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
-          temperature: temperature ?? DEFAULT_TEMPERATURE,
-          max_tokens: MAX_TOKENS_SUGGESTIONS,
-          ...NO_THINKING
-        }),
-        signal: timeoutController.signal
-      });
-    } catch (err) {
-      if (timeoutController.signal.aborted && !signal.aborted) {
-        throw new SuggestError('timeout', 'The local model took too long to respond.');
+  async getSuggestions(input: SuggestionRequest, timing: StreamTiming = STREAM_TIMING): Promise<string[]> {
+    const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, previousSuggestions } = input;
+    const { content, finishReason, sawReasoning } = await streamCompletion({
+      ...input,
+      timing,
+      body: {
+        messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode, instructionOverride),
+        response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
+        temperature: temperature ?? DEFAULT_TEMPERATURE,
+        max_tokens: MAX_TOKENS_SUGGESTIONS,
+        ...NO_THINKING
       }
-      if (signal.aborted) {
-        throw err; // superseded request — let the caller treat this as an abort, not a failure
-      }
-      throw new SuggestError('connection_refused', `Could not reach ${baseUrl}. Is the local server running?`);
-    } finally {
-      clearTimeout(timer);
-    }
-
-    if (!response.ok) {
-      throw new SuggestError('bad_response', `Local model server responded with ${response.status}.`);
-    }
-
-    const body = await response.json();
-    const choice = body?.choices?.[0];
-    const content: string | undefined = choice?.message?.content;
-    if (!content) {
-      throw new SuggestError('bad_response', noAnswerMessage(choice?.finish_reason, Boolean(choice?.message?.reasoning_content)));
-    }
-
+    });
+    if (!content) throw new SuggestError('bad_response', noAnswerMessage(finishReason, sawReasoning));
     return parseSuggestions(content);
   },
 
@@ -193,159 +323,29 @@ export const openAICompatibleProvider: LLMProvider = {
     emit: (event: SuggestionStreamEvent) => void,
     timing: StreamTiming = STREAM_TIMING
   ): Promise<string[]> {
-    const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, previousSuggestions, model, baseUrl, apiKey, timeout, signal } = input;
-
-    const timeoutController = new AbortController();
-    // Two phases. Until the model's first real chunk, a model swap or load may be
-    // in progress: wait up to loadTimeoutMs and say why (status events). After it,
-    // an idle timeout: every chunk pushes the deadline back out, so a slow-but-steady
-    // stream isn't killed — only a stall (no bytes for `timeout` ms) trips it.
-    let modelAnswering = false;
-    let timer = setTimeout(() => timeoutController.abort(), timing.loadTimeoutMs);
-    const resetIdleTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => timeoutController.abort(), timeout);
-    };
-    signal.addEventListener('abort', () => timeoutController.abort());
-    const timeoutError = () =>
-      modelAnswering
-        ? new SuggestError('timeout', 'The local model took too long to respond.')
-        : new SuggestError('timeout', `The model server did not start answering within ${Math.round(timing.loadTimeoutMs / 1000)} seconds.`);
-
-    // Status while nothing has come back: "waiting", refined by llama-swap's /running.
-    let lastStatus = '';
-    let statusTimer: ReturnType<typeof setTimeout> | undefined;
-    const reportStatus = async () => {
-      if (modelAnswering || timeoutController.signal.aborted) return;
-      const status = (await probeLoadState(baseUrl, model, timeoutController.signal)) ?? { state: 'waiting' as const };
-      if (modelAnswering || timeoutController.signal.aborted) return;
-      const key = JSON.stringify(status);
-      if (key !== lastStatus) emit({ type: 'status', status });
-      lastStatus = key;
-      statusTimer = setTimeout(reportStatus, timing.statusPollMs);
-    };
-    statusTimer = setTimeout(reportStatus, timing.statusDelayMs);
-    const modelStarted = () => {
-      if (modelAnswering) return;
-      modelAnswering = true;
-      clearTimeout(statusTimer);
-    };
-
-    let response: Response;
-    try {
-      response = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
-        },
-        body: JSON.stringify({
-          model,
-          messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode, instructionOverride),
-          response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
-          temperature: temperature ?? DEFAULT_TEMPERATURE,
-          stream: true,
-          max_tokens: MAX_TOKENS_SUGGESTIONS,
-          ...NO_THINKING
-        }),
-        signal: timeoutController.signal
-      });
-    } catch (err) {
-      clearTimeout(timer);
-      clearTimeout(statusTimer);
-      if (timeoutController.signal.aborted && !signal.aborted) throw timeoutError();
-      if (signal.aborted) {
-        throw err; // superseded request — let the caller treat this as an abort, not a failure
-      }
-      throw new SuggestError('connection_refused', `Could not reach ${baseUrl}. Is the local server running?`);
-    }
-
-    if (!response.ok) {
-      clearTimeout(timer);
-      clearTimeout(statusTimer);
-      throw new SuggestError('bad_response', `Local model server responded with ${response.status}.`);
-    }
-    if (!response.body) {
-      clearTimeout(timer);
-      clearTimeout(statusTimer);
-      throw new SuggestError('bad_response', 'Local model server returned an empty stream.');
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let lineRemainder = '';
-    let contentBuffer = '';
+    const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, previousSuggestions } = input;
     let emittedCount = 0;
-    let sawReasoning = false;
-    let finishReason: string | null = null;
-
-    try {
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        let next: ReadableStreamReadResult<Uint8Array>;
-        try {
-          next = await reader.read();
-        } catch (err) {
-          if (timeoutController.signal.aborted && !signal.aborted) throw timeoutError();
-          if (signal.aborted) throw err;
-          throw new SuggestError('connection_refused', `Could not reach ${baseUrl}. Is the local server running?`);
-        }
-        if (next.done) break;
-        // Until the model answers, only the load timeout runs: llama-swap's own
-        // loading chunks (sendLoadingState) must not switch to the short idle one.
-        if (modelAnswering) resetIdleTimer();
-
-        lineRemainder += decoder.decode(next.value, { stream: true });
-        const lines = lineRemainder.split('\n');
-        lineRemainder = lines.pop() ?? '';
-
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (!trimmedLine.startsWith('data:')) continue;
-          const data = trimmedLine.slice('data:'.length).trim();
-          if (data === '[DONE]') continue;
-
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(data);
-          } catch {
-            continue; // stray keepalive or partial frame — ignore
-          }
-
-          const chunk = parsed as {
-            id?: unknown;
-            choices?: { delta?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: string | null }[];
-          };
-          const choice = chunk?.choices?.[0];
-          const delta = choice?.delta;
-          // llama-swap's sendLoadingState injects its loading progress as reasoning_content,
-          // in chunks without an id; llama-server's own chunks always carry one (v262).
-          // Counting those as the model's thinking would blame reasoning for an empty
-          // answer, and as the model's start would cut the load wait short.
-          if (chunk?.id === undefined && typeof delta?.content !== 'string' && !choice?.finish_reason) continue;
-          if (!modelAnswering) {
-            modelStarted();
-            resetIdleTimer();
-          }
-          if (choice?.finish_reason) finishReason = choice.finish_reason;
-          if (typeof delta?.reasoning_content === 'string' && delta.reasoning_content) sawReasoning = true;
-          if (typeof delta?.content !== 'string') continue;
-
-          contentBuffer += delta.content;
-          const cleaned = cleanSuggestions(extractSuggestions(contentBuffer).suggestions);
-          while (emittedCount < cleaned.length && emittedCount < 3) {
-            emit({ type: 'suggestion', index: emittedCount, text: cleaned[emittedCount] });
-            emittedCount++;
-          }
+    const { content, finishReason, sawReasoning } = await streamCompletion({
+      ...input,
+      timing,
+      body: {
+        messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode, instructionOverride),
+        response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
+        temperature: temperature ?? DEFAULT_TEMPERATURE,
+        max_tokens: MAX_TOKENS_SUGGESTIONS,
+        ...NO_THINKING
+      },
+      onStatus: (status) => emit({ type: 'status', status }),
+      onContent: (soFar) => {
+        const cleaned = cleanSuggestions(extractSuggestions(soFar).suggestions);
+        while (emittedCount < cleaned.length && emittedCount < 3) {
+          emit({ type: 'suggestion', index: emittedCount, text: cleaned[emittedCount] });
+          emittedCount++;
         }
       }
-    } finally {
-      clearTimeout(timer);
-      clearTimeout(statusTimer);
-      modelAnswering = true; // stops a status probe still in flight from emitting
-    }
+    });
 
-    const finalSuggestions = cleanSuggestions(extractSuggestions(contentBuffer).suggestions);
+    const finalSuggestions = cleanSuggestions(extractSuggestions(content).suggestions);
     if (finalSuggestions.length === 0) {
       throw new SuggestError(
         'bad_response',
@@ -355,54 +355,19 @@ export const openAICompatibleProvider: LLMProvider = {
     return finalSuggestions.slice(0, 3);
   },
 
-  async getAiLikeness(input: AiLikenessRequest): Promise<AiLikenessResult> {
-    const { text, model, baseUrl, apiKey, timeout, signal } = input;
-
-    const timeoutController = new AbortController();
-    const timer = setTimeout(() => timeoutController.abort(), timeout);
-    signal.addEventListener('abort', () => timeoutController.abort());
-
-    let response: Response;
-    try {
-      response = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
-        },
-        body: JSON.stringify({
-          model,
-          messages: buildAiLikenessMessages(text),
-          response_format: { type: 'json_schema', json_schema: AI_LIKENESS_JSON_SCHEMA },
-          temperature: 0.3,
-          max_tokens: MAX_TOKENS_AI_LIKENESS,
-          ...NO_THINKING
-        }),
-        signal: timeoutController.signal
-      });
-    } catch (err) {
-      if (timeoutController.signal.aborted && !signal.aborted) {
-        throw new SuggestError('timeout', 'The local model took too long to respond.');
+  async getAiLikeness(input: AiLikenessRequest, timing: StreamTiming = STREAM_TIMING): Promise<AiLikenessResult> {
+    const { content, finishReason, sawReasoning } = await streamCompletion({
+      ...input,
+      timing,
+      body: {
+        messages: buildAiLikenessMessages(input.text),
+        response_format: { type: 'json_schema', json_schema: AI_LIKENESS_JSON_SCHEMA },
+        temperature: 0.3,
+        max_tokens: MAX_TOKENS_AI_LIKENESS,
+        ...NO_THINKING
       }
-      if (signal.aborted) {
-        throw err; // superseded request — let the caller treat this as an abort, not a failure
-      }
-      throw new SuggestError('connection_refused', `Could not reach ${baseUrl}. Is the local server running?`);
-    } finally {
-      clearTimeout(timer);
-    }
-
-    if (!response.ok) {
-      throw new SuggestError('bad_response', `Local model server responded with ${response.status}.`);
-    }
-
-    const body = await response.json();
-    const choice = body?.choices?.[0];
-    const content: string | undefined = choice?.message?.content;
-    if (!content) {
-      throw new SuggestError('bad_response', noAnswerMessage(choice?.finish_reason, Boolean(choice?.message?.reasoning_content)));
-    }
-
+    });
+    if (!content) throw new SuggestError('bad_response', noAnswerMessage(finishReason, sawReasoning));
     return parseAiLikeness(content);
   }
 };
