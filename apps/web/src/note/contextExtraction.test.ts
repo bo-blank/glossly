@@ -54,6 +54,16 @@ describe('extractContext', () => {
     expect(wide.after).toBe('\n\nvier\n\nfünf\n\nsechs');
   });
 
+  it('reads across section boundaries as if they were not there', () => {
+    const md = ['## Eins', 'erster Teil', '## Zwei', 'MITTE', '## Drei', 'dritter Teil'].join('\n\n');
+    const d = doc(md);
+    expect(d.childCount).toBe(3);
+    const c = context(md, 'MITTE');
+    expect(c.headingPath).toEqual(['Zwei']);
+    expect(c.before).toBe('Eins\n\nerster Teil\n\n');
+    expect(c.after).toBe('\n\nDrei\n\ndritter Teil');
+  });
+
   it('keeps blocks whole and stops a side at the first block that does not fit', () => {
     const md = ['kurz', 'ein sehr langer Absatz, der nicht mehr passt', 'MITTE', 'danach'].join('\n\n');
     const c = context(md, 'MITTE', { budget: 30 });

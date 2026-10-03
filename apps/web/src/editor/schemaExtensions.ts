@@ -7,6 +7,7 @@ import { TextAlign } from '@tiptap/extension-text-align';
 import { Subscript } from '@tiptap/extension-subscript';
 import { Superscript } from '@tiptap/extension-superscript';
 import { BlobImage } from './blobImage';
+import { Section, SectionDocument } from './section';
 
 /**
  * The extensions that define the document schema — the editor and the
@@ -19,7 +20,10 @@ export const schemaExtensions: Extensions = [
   // StarterKit's own extensions resolve a newer nested @tiptap/core (3.29 vs the
   // pinned 3.27), so its type isn't assignable to ours. Runtime is unaffected;
   // aligning the @tiptap versions removes the need for this cast.
-  StarterKit as unknown as AnyExtension,
+  StarterKit.configure({ document: false }) as unknown as AnyExtension,
+  // Phase 5: the document is a list of blocks (section.ts).
+  SectionDocument,
+  Section,
   Highlight.configure({ multicolor: true }),
   TextAlign.configure({ types: ['heading', 'paragraph'] }),
   TaskList,

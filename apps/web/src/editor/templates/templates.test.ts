@@ -12,13 +12,14 @@ const schema = getSchema(schemaExtensions);
 const plain = (html: string) => html.replace(/<br>/g, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 // Enough for the address count, which reads the text only; the real HTML is
 // parsed by the editor in the browser check.
-const docOf = (html: string) => schema.node('doc', null, [schema.node('paragraph', null, schema.text(plain(html) || ' '))]);
+const docOf = (html: string) =>
+  schema.node('doc', null, [schema.node('section', null, [schema.node('paragraph', null, schema.text(plain(html) || ' '))])]);
 
 // Tiptap silently drops nodes no loaded extension claims, so a template written
 // with an unsupported tag would lose content with no error anywhere.
 // Plain structure only: no highlights, colours, underline or strikethrough —
 // a template is a starting draft, not a formatted document.
-const ALLOWED_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'strong', 'em', 'br']);
+const ALLOWED_TAGS = new Set(['section', 'p', 'h1', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'strong', 'em', 'br']);
 const tagsIn = (html: string) => [...html.matchAll(/<\/?([a-z][a-z0-9]*)/gi)].map((m) => m[1].toLowerCase());
 
 describe('templates', () => {

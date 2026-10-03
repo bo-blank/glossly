@@ -80,6 +80,13 @@ function blockText(node: PMNode): string {
   return node.textBetween(0, node.content.size, '\n', ' ').trim();
 }
 
+/** Index of the last block starting at or before `pos`. */
+function blockIndexAt(blocks: { pos: number }[], pos: number): number {
+  let i = 0;
+  while (i + 1 < blocks.length && blocks[i + 1].pos <= pos) i++;
+  return i;
+}
+
 /**
  * What the model sees around a selection: the document title, the enclosing
  * headings, and neighbouring blocks filled nearest-first — alternating before
@@ -88,14 +95,16 @@ function blockText(node: PMNode): string {
  * own block is trimmed, around the selection, at word boundaries.
  */
 export function extractContext(doc: PMNode, from: number, to: number, title: string, budget = CONTEXT_BUDGET): SuggestionContext {
+  // "Block" here is a paragraph, heading, list or quote — the children of the
+  // document's sections (Phase 5), read across section boundaries.
   const blocks: { node: PMNode; pos: number }[] = [];
-  doc.forEach((node, pos) => blocks.push({ node, pos }));
+  doc.forEach((section, sectionPos) => section.forEach((node, offset) => blocks.push({ node, pos: sectionPos + 1 + offset })));
   if (blocks.length === 0) return { title, headingPath: [], before: '', after: '' };
 
-  // index(0) is the top-level block containing the position — a list item or
-  // quote belongs to its outermost list or blockquote.
-  const first = Math.min(doc.resolve(from).index(0), blocks.length - 1);
-  const last = Math.max(first, Math.min(doc.resolve(to).index(0), blocks.length - 1));
+  // The outermost block containing the position — a list item or quote
+  // belongs to its whole list or blockquote.
+  const first = blockIndexAt(blocks, from);
+  const last = Math.max(first, blockIndexAt(blocks, to));
 
   // Headings enclosing the selection, outermost first. A heading pops every
   // heading of the same or a deeper level.

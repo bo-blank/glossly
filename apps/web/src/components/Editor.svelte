@@ -3,9 +3,11 @@
 
   import { get } from 'svelte/store';
   import { schemaExtensions } from '../editor/schemaExtensions';
-  import { Placeholder, Selection, CharacterCount } from '@tiptap/extensions';
+  import { sectionedContent } from '../editor/section';
+  import { Selection, CharacterCount } from '@tiptap/extensions';
+  import { EmptyPlaceholder } from '../editor/emptyPlaceholder';
   import { TableOfContents, getHierarchicalIndexes } from '@tiptap/extension-table-of-contents';
-  import { Editor } from '@tiptap/core';
+  import { Editor, getSchema } from '@tiptap/core';
   import { onMount, onDestroy } from 'svelte';
   import { editorStore, noteStore } from '../stores/noteStore';
   import { tocStore } from '../stores/tocStore';
@@ -149,7 +151,7 @@
 
   function chooseTemplate(template, language) {
     choose(template.name, () => {
-      editor.chain().focus().setContent(template.content, { emitUpdate: true }).run();
+      editor.chain().focus().setContent(sectionedContent(template.content, editor.schema), { emitUpdate: true }).run();
       // The structure guide follows the document's template; the blank page has none.
       const id = get(documentStore).activeId;
       void setTemplateOrigin(id, template.id === BLANK_TEMPLATE_ID ? undefined : { id: template.id, language });
@@ -162,7 +164,7 @@
       const id = get(documentStore).activeId;
       // Image copies owned by this document, so deleting the template cannot take them.
       const html = await htmlForDocument(template, id);
-      editor.chain().focus().setContent(html, { emitUpdate: true }).run();
+      editor.chain().focus().setContent(sectionedContent(html, editor.schema), { emitUpdate: true }).run();
       void setTemplateOrigin(id, undefined);
       closeTemplateMenu();
     });
@@ -259,7 +261,7 @@
     onSelectionChange({ selectedText, context, from, to, screenPos });
   }
 
-  // Read by the Placeholder extension on every render, so it needs no reactivity:
+  // Read by the EmptyPlaceholder extension on every render, so it needs no reactivity:
   // the next transaction after a flip picks up the plain placeholder.
   let hintSeen = loadHintSeen();
   onMount(() => {
@@ -369,9 +371,14 @@
             </p>
           `;
 
+  // For splitting pre-Phase-5 HTML into blocks before the editor exists, so the
+  // split is the document's starting state rather than an undoable edit.
+  const blockSchema = getSchema(schemaExtensions);
+
   // Always a fresh instance: reusing one across documents would let Ctrl+Z
   // undo into the previous manuscript.
-  function buildEditor(content) {
+  function buildEditor(html) {
+    const content = sectionedContent(html, blockSchema);
     // TableOfContents stamps heading ids in its own onCreate, which runs before
     // ours. That is not an edit: saving it would make every freshly opened file
     // look changed and rewrite it on disk.
@@ -380,7 +387,7 @@
       element: element,
       extensions: [
         ...schemaExtensions,
-        Placeholder.configure({ placeholder: () => placeholderFor(hintSeen) }),
+        EmptyPlaceholder.configure({ placeholder: () => placeholderFor(hintSeen) }),
         Selection,
         // The same word count as the readability highlighting: dashes are not words.
         CharacterCount.configure({ wordCounter: countWords }),
@@ -407,7 +414,7 @@
       },
     });
 
-    editorStore.set({ editor: ed, selection: { from: 0, to: 0 }, document: content });
+    editorStore.set({ editor: ed, selection: { from: 0, to: 0 }, document: ed.getHTML() });
     publishDashboardStats(ed);
     docVersion++;
     return ed;

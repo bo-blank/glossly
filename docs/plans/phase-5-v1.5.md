@@ -48,7 +48,7 @@ The web app moves from Phase 5 to Phase 6, at the writer's decision
 
 | # | Question | Recommendation | Needed by |
 | --- | --- | --- | --- |
-| A | Documents and Markdown files **without** block markers: how are they split? | A new block before every H1/H2, except when the document starts with it; no headings → one block | WP1 |
+| A | Documents and Markdown files **without** block markers: how are they split? | **Decided 2026-10-03:** a new block before every H1/H2, unless the block so far holds only headings (a title stays with the chapter heading under it); no headings → one block | WP1 |
 | B | Write markers into the writer's `.md` files always, or only when needed? | Only when the blocks differ from what rule A would derive or a block has a name. A file that rule A reproduces stays untouched | WP2 |
 | C | Block name in the text: always visible, or only on hover/focus? | Always visible when the block is named, small and grey above the block. Unnamed blocks show nothing until hovered | WP3 |
 | E | Table of contents: blocks without a heading, how do they show? | As a short grey entry (first ~4 words), so every block can be grabbed there too. Headings stay the normal entries | WP5b |
@@ -169,7 +169,10 @@ Node.create({
   the hierarchical index still works. Its onCreate dispatch is a known trap
   (see `Editor.svelte` near line 375).
 - `Placeholder` / first-run hint: the empty document is now
-  `section > paragraph`. Check that the placeholder still shows.
+  `section > paragraph`. Tiptap's Placeholder needs `includeChildren` for
+  that, and then reads "editor is empty" from the state before the
+  transaction (hint one keystroke late). Replaced by `EmptyPlaceholder`
+  (`editor/emptyPlaceholder.ts`), same class and attribute.
 - `CharacterCount`, readability marking, sentence expansion, `extractBlobIds`,
   `plainTemplateContent`, `DocumentMenu` save-as-template: test or verify.
 - `templates.test.ts` formatting rule ("only p/h1-3/lists/quote/bold/

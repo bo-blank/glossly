@@ -1,10 +1,17 @@
 import { getSchema } from '@tiptap/core';
+import type { Node as PMNode } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { fromMarkdown, toMarkdown } from './markdown';
 import { schemaExtensions } from './schemaExtensions';
 
 const schema = getSchema(schemaExtensions);
 const roundTrip = (md: string) => toMarkdown(fromMarkdown(md, schema));
+/** The parsed blocks' contents as one section, for tests about the nodes rather than the block split. */
+const body = (md: string) => {
+  const nodes: PMNode[] = [];
+  fromMarkdown(md, schema).forEach((section) => section.forEach((n) => void nodes.push(n)));
+  return schema.nodes.section.create(null, nodes);
+};
 
 describe('markdown round trip', () => {
   it.each([
@@ -27,14 +34,14 @@ describe('markdown round trip', () => {
 
   it('turns GFM task items into a task list and back', () => {
     const md = '- [ ] offen\n- [x] erledigt';
-    const doc = fromMarkdown(md, schema);
+    const doc = body(md);
     expect(doc.firstChild?.type.name).toBe('taskList');
     expect(doc.firstChild?.child(1).attrs.checked).toBe(true);
-    expect(toMarkdown(doc)).toBe(md);
+    expect(roundTrip(md)).toBe(md);
   });
 
   it('keeps a list with only some checkbox-looking items a bullet list', () => {
-    const doc = fromMarkdown('- [ ] offen\n- normal', schema);
+    const doc = body('- [ ] offen\n- normal');
     expect(doc.firstChild?.type.name).toBe('bulletList');
   });
 });
@@ -74,7 +81,7 @@ describe('images', () => {
 describe('images inside text', () => {
   const types = (md: string) => {
     const out: string[] = [];
-    fromMarkdown(md, schema).forEach((n) => void out.push(n.type.name));
+    body(md).forEach((n) => void out.push(n.type.name));
     return out;
   };
 
@@ -84,7 +91,7 @@ describe('images inside text', () => {
   });
 
   it('keeps a list item valid when it starts with an image', () => {
-    const doc = fromMarkdown('- ![Foto](x.png)\n- Text', schema);
+    const doc = body('- ![Foto](x.png)\n- Text');
     const item = doc.firstChild!.firstChild!;
     expect(item.firstChild!.type.name).toBe('paragraph');
     expect(item.child(1).type.name).toBe('image');
@@ -93,13 +100,13 @@ describe('images inside text', () => {
 
 describe('raw HTML', () => {
   it('drops HTML comments', () => {
-    const doc = fromMarkdown('# markdown-it <!-- omit in toc -->\n\n<!-- note -->\n\ntext', schema);
+    const doc = body('# markdown-it <!-- omit in toc -->\n\n<!-- note -->\n\ntext');
     expect(doc.firstChild?.textContent).toBe('markdown-it');
     expect(doc.childCount).toBe(2);
   });
 
   it('keeps other HTML as literal text, never as markup', () => {
-    const doc = fromMarkdown('<details><summary>Mehr</summary></details>\n\nein <b>fett</b> wort', schema);
+    const doc = body('<details><summary>Mehr</summary></details>\n\nein <b>fett</b> wort');
     expect(doc.firstChild?.textContent).toBe('<details><summary>Mehr</summary></details>');
     expect(doc.child(1).textContent).toBe('ein <b>fett</b> wort');
     let marked = false;
@@ -127,7 +134,7 @@ describe('importing a README written elsewhere', () => {
       '1) paren list',
       '2) second'
     ].join('\n');
-    const doc = fromMarkdown(readme, schema);
+    const doc = body(readme);
     const types: string[] = [];
     doc.forEach((n) => void types.push(n.type.name));
     expect(types).toEqual(['heading', 'paragraph', 'heading', 'codeBlock', 'bulletList', 'orderedList']);

@@ -6,6 +6,7 @@ import {
   type MarkdownSerializerState
 } from 'prosemirror-markdown';
 import type { Node as PMNode, Schema } from 'prosemirror-model';
+import { regroupSections } from './section';
 
 // prosemirror-markdown's defaults target prosemirror-schema-basic (snake_case);
 // Tiptap's schema is camelCase. Everything below is re-keyed to Tiptap names.
@@ -49,6 +50,8 @@ function buildSerializer(resolveImage: ImageSrcResolver) {
   return new MarkdownSerializer(
     {
       doc: (state, node) => state.renderContent(node),
+      // Blocks write no markers yet (Phase 5 WP2); their content just follows on.
+      section: (state, node) => state.renderContent(node),
       paragraph: baseNodes.paragraph,
       text: baseNodes.text,
       heading: baseNodes.heading,
@@ -193,13 +196,21 @@ function neutralizeHtml(state: any) {
   state.tokens = out;
 }
 
+/** Wraps the whole document in one block; `regroupSections` splits it afterwards. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function wrapInSection(state: any) {
+  state.tokens = [new state.Token('section_open', 'section', 1), ...state.tokens, new state.Token('section_close', 'section', -1)];
+}
+
 export function markdownParser(schema: Schema): MarkdownParser {
   // html: true only so comments are recognised as such; neutralizeHtml makes
   // sure nothing is ever rendered as HTML.
   const tokenizer = new MarkdownIt('commonmark', { html: true }).enable('strikethrough');
   tokenizer.core.ruler.push('glossly_neutralize_html', neutralizeHtml);
   tokenizer.core.ruler.push('glossly_hoist_images', hoistImages);
+  tokenizer.core.ruler.push('glossly_section', wrapInSection);
   return new MarkdownParser(schema, tokenizer, {
+    section: { block: 'section' },
     blockquote: tokenSpec.blockquote,
     paragraph: tokenSpec.paragraph,
     heading: tokenSpec.heading,
@@ -261,5 +272,5 @@ function toTaskItem(item: JSONNode): JSONNode {
 
 export function fromMarkdown(text: string, schema: Schema): PMNode {
   const parsed = markdownParser(schema).parse(text);
-  return schema.nodeFromJSON(liftTaskLists(parsed.toJSON()));
+  return regroupSections(schema.nodeFromJSON(liftTaskLists(parsed.toJSON())));
 }
