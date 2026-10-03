@@ -171,11 +171,13 @@ meeting notes), and the existing ones rewritten as real prose.
 
 Save a document as a template, images included.
 
-### 22. Grammar check — measurement only
+### 22. Grammar check — measurement only ✅
 
-A fixed German/English test set decides, against thresholds set in advance,
-whether a small local model can check grammar without false alarms. No
-feature code.
+Measured on a fixed German/English test set (120 sentences): gemma4-e2b
+fixed 90 % / 100 % of the errors but raised 20 % / 10 % false alarms, missing
+the rule set in advance; gemma4-12b passed both. The writer decided to build
+it with e2b anyway, skipping quoted speech and re-measuring first — see story
+6.7 and #24.
 
 ---
 
@@ -188,6 +190,12 @@ model directly (CORS, local network access) or through the proxy as a
 companion, an installable PWA for the "own window" feel, and hosting that
 keeps the privacy promise. Starts with a comparison and a spike; gets its own
 plan.
+
+### 24. Grammar and spelling check (not yet scheduled)
+
+Opt-in check with gemma4-e2b: findings as margin notes, applied only by
+click, quoted speech skipped. Starts with a re-measurement on the #22 test
+set. Story 6.7 lists the conditions.
 
 ### 17. Find the local server (moved from Phase 4)
 

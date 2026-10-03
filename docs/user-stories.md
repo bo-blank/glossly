@@ -298,7 +298,7 @@ than P1, which is fine as long as it stays opt-in.
 Two beginner features stay open. They don't fit v1, but neither is a
 non-goal forever. Each one can come in once its conditions are met.
 
-#### 6.7 Grammar and spelling check — deferred, measured in #22
+#### 6.7 Grammar and spelling check — measured (#22), to be built with e2b
 
 As P5, I want spelling, comma and grammar mistakes pointed out, because I
 don't always see them myself.
@@ -317,6 +317,26 @@ Conditions before this becomes a real story:
   turn into noise.
 - **Spec update.** `specs.md` §1 lists "Not a grammar/spellchecker" as a v1
   non-goal. Adopting this story means changing that line on purpose.
+
+**Measured 2026-10-03 (#22, numbers in `docs/local-model-notes.md`).**
+gemma4-e2b-qat fixed 90 % (de) and 100 % (en) of the errors but changed 20 %
+and 10 % of the correct sentences, so it missed the rule set in advance
+(≤ 5 % false alarms). gemma4-12b passed in both languages at about 1 s per
+sentence. Four of e2b's six false alarms touched text in quotation marks:
+dialect and colloquial speech "corrected", twice the speaker tag dropped.
+
+**Decision (the writer, 2026-10-03):** built anyway, with e2b — the misses
+are small and e2b corrects well. It goes ahead under the conditions above,
+plus two that answer the measurement:
+
+- **Quoted speech is skipped.** Text inside quotation marks is not checked,
+  which removes most of e2b's false alarms (dialect, colloquial speech, the
+  dropped speaker tags).
+- **Re-measured before it ships.** The first step is the same bench
+  (`bench-grammar`) with the skipping in place; its numbers go next to the
+  first run in `docs/local-model-notes.md`.
+
+Not scheduled yet: Phase 5 is the web app. It gets its own plan.
 
 #### 6.8 Help notes — deferred
 

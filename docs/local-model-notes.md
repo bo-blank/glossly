@@ -178,3 +178,49 @@ dort ~7x Tokens bei jedem fuenften Request, hier der Extremfall bis ans Kontexte
 `tail -5 ~/llama-swap-config/logs/<modell>.log` - ein `n_gen`, das weiterzaehlt, ist ein
 Runaway. `kill <llama-server-pid>` gibt die GPU frei, llama-swap laedt das Modell beim
 naechsten Request neu.
+
+## Grammatik-Prüfung: Messung (2026-10-03, Phase 4 WP7)
+
+Testset `apps/web/scripts/grammar-bench/cases.ts`: pro Sprache 40 Sätze mit genau
+einem Fehler (DE: Rechtschreibung, das/dass, Pflichtkomma, Kongruenz,
+Großschreibung; EN: spelling, confusables, apostrophes, agreement,
+capitalisation) und 20 korrekte Sätze mit Fallen (Dialekt und Umgangssprache im
+Dialog, Fragmente, Namen, erfundene Wörter, Schweizer „ss“, britische
+Schreibung, Kann-Komma, Konjunktiv). Bench: `bench-grammar` (JSON-Schema,
+Temperatur 0, `NO_THINKING`). Typografische Anführungszeichen zählen nicht als
+Änderung.
+
+| Modell | Sprache | Fehler exakt korrigiert | Fehlalarme | Median/Satz |
+|---|---|---|---|---|
+| gemma4-e2b-qat | de | 36/40 (90 %) | 4/20 (20 %) | 286 ms |
+| gemma4-e2b-qat | en | 40/40 (100 %) | 2/20 (10 %) | 267 ms |
+| lfm2-exp-2.6b | de | 12/40 (30 %) | 12/20 (60 %) | 200 ms |
+| lfm2-exp-2.6b | en | 20/40 (50 %) | 6/20 (30 %) | 170 ms |
+| gemma4-12b | de | 40/40 (100 %) | 1/20 (5 %) | 1053 ms |
+| gemma4-12b | en | 40/40 (100 %) | 0/20 (0 %) | 970 ms |
+
+**Vorab-Regel (≤ 5 % Fehlalarme und ≥ 80 % Treffer, beide Sprachen, e2b): nicht
+erfüllt.** e2b findet die Fehler sehr gut, ändert aber korrekte Sätze:
+
+- Dialekt und Umgangssprache in wörtlicher Rede werden „korrigiert“
+  („Des passt scho“ → „Das passt schon“; „Haste mal ’ne Minute?“ → „Hast du mal
+  eine Minute?“), dabei fiel zweimal der Begleitsatz weg („fragte sie“, „she
+  laughed“, „he texted“). Vermutlich stolpert e2b über Anführungszeichen in der
+  JSON-Antwort; lfm2-exp tut dasselbe, gemma4-12b nicht.
+- Ein erfundenes Wort löste erfundenen Dialekt aus („hob d'Lampe über de Schacht“).
+- Kann-Komma eingefügt („Er versprach, sie anzurufen“) — das einzige Fehlurteil
+  von gemma4-12b.
+- Bei einer Kommakorrektur ß → ss („Ich weiss nicht, ob …“).
+
+4 der 6 e2b-Fehlalarme betreffen Text in Anführungszeichen. Das Testset hat
+nach dem Lauf eine erlaubte Alternative bekommen („Standardeinstellungen“ ohne
+Bindestrich ist laut Duden sogar die übliche Form; e2b hatte sie gewählt) —
+damit wären es 37/40 bei e2b/de, an der Regel ändert das nichts.
+
+lfm2-exp-2.6b ist für Korrekturen unbrauchbar: es streicht reihenweise
+Pflichtkommas und übersetzt teils ins Englische.
+
+**Entscheidung des Writers (2026-10-03):** Die Fehler gelten als klein genug —
+e2b schlägt sich für Korrekturen insgesamt gut. Die Prüfung wird trotz der
+verfehlten Regel weiterverfolgt, mit e2b und unter den Bedingungen in Story 6.7.
+Erster Schritt dort: dieselbe Messung mit den Gegenmaßnahmen wiederholen.
