@@ -104,35 +104,93 @@ the old localStorage path still works.
 
 ---
 
-## Phase 3 (v1.3) — Suggestion quality
+## Phase 3 (v1.3) — Suggestion quality ✅ shipped
 
 Better input to the model beats a smarter pipeline around it.
 
-### 11. Richer context extraction
+### 11. Richer context extraction ✅
 
-Send the document title / nearest heading plus neighboring paragraphs instead
-of only the ±1 adjacent blocks, within a fixed token budget.
+The request carries the document title, the enclosing headings and as much
+surrounding text as fits a 4000-character budget, nearest text first, with
+the selection marked in place. The German form of address (du/Sie) is
+detected on the client and stated in the prompt.
 
-### 12. Suggestion history per session
+### 12. Suggestion history per session ✅
 
-Keep the per-selection suggestion history (started in Phase 0 for "New
-suggestions") across the whole session: revisit earlier alternatives, avoid
-duplicate requests.
+Every suggestion shown for a phrase stays reachable for the session under a
+collapsed "Earlier (n)" list, across chips and visits, and "New suggestions"
+avoids all of them. Memory only — a reload clears it.
 
-### 13. Per-modifier tuning
+### 13. Per-modifier tuning ✅
 
-Expose temperature and prompt template per modifier chip in Settings, for
-writers who want Plainer to be conservative and More vivid to be adventurous.
+Settings → "Tune chips": temperature (steady ↔ adventurous) and instruction
+per style chip, built-ins and custom chips alike, with a reset per chip.
 
-### 14. Comparison view
+### 14. Comparison view ✅
 
-Original and suggestions side by side with word-level diff highlighting before
-committing a swap.
+Changed words are highlighted in each suggestion, and the removed words are
+struck through in the original while a suggestion is hovered or focused.
 
-### 15. Desktop packaging (optional)
+### 15. Desktop packaging — replaced by #23
 
-Tauri wrapper bundling web app + proxy into one binary — same local-first
-architecture, no browser tab. Only worth it once Phase 2 lands.
+Tauri on Linux renders with WebKitGTK, which has no File System Access API,
+so real files (#8) would have degraded to download/import. Decided instead:
+Glossly becomes a web app (Phase 5).
+
+---
+
+## Phase 4 (v1.4) — Setup, trust, starting points
+
+Closes the gaps around the loop: finding the model, waiting for it, seeing
+where the text goes, and starting from something. Plan:
+`docs/plans/phase-4-v1.4.md`.
+
+### 16. Visible local-only indicator
+
+A status line shows where requests go ("local · 127.0.0.1:8080") and changes
+visibly for a LAN host.
+
+### 17. Find the local server
+
+The proxy probes a fixed list of loopback ports for llama-swap, llama.cpp,
+Ollama and LM Studio, and preselects the model that is already loaded.
+
+### 18. Cold start reads as loading
+
+A model being loaded shows as "loading", with a separate load timeout,
+instead of failing as "took too long".
+
+### 19. Protected words
+
+A per-document list of words that suggestions must keep; a suggestion that
+drops one is flagged.
+
+### 20. Templates in German and English
+
+Every template in both languages, new kinds (business e-mail, scene, essay,
+meeting notes), and the existing ones rewritten as real prose.
+
+### 21. Own templates
+
+Save a document as a template, images included.
+
+### 22. Grammar check — measurement only
+
+A fixed German/English test set decides, against thresholds set in advance,
+whether a small local model can check grammar without false alarms. No
+feature code.
+
+---
+
+## Phase 5 — Glossly as a web app (pinned)
+
+### 23. Web app instead of desktop packaging
+
+Find the ways to run Glossly as a web app: the browser reaching the local
+model directly (CORS, local network access) or through the proxy as a
+companion, an installable PWA for the "own window" feel, and hosting that
+keeps the privacy promise. Starts with a comparison and a spike; gets its own
+plan.
 
 ---
 
@@ -157,7 +215,7 @@ Listed explicitly so they don't creep back in unexamined.
   conflict resolution tools** — workflow machinery for a problem the margin
   note doesn't have; undo already covers reverting.
 - **Browser extension / mobile** — platform spread before the core is done;
-  Tauri (#15) is the one packaging step that pays for itself.
+  the web app (#23) is the one packaging step that pays for itself.
 - **Success-metric targets** — the old list of unmeasured percentages is gone;
   if a metric matters it gets an actual measurement method first.
 

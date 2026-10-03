@@ -80,7 +80,7 @@ structural, and only when I ask for it.
 
 - Opt-in via the "Rewrite sentence" chip; the default stays phrase-level.
 
-### 1.6 Earlier alternatives — #12
+### 1.6 Earlier alternatives ✅
 
 As P1, I want to get back alternatives I saw earlier for the same selection,
 because the second batch often makes me want the first one back.
@@ -88,7 +88,7 @@ because the second batch often makes me want the first one back.
 - Alternatives are kept per selection for the whole session.
 - Going back to an earlier batch doesn't hit the model again.
 
-### 1.7 Suggestions that know the chapter — #11
+### 1.7 Suggestions that know the chapter ✅
 
 As P1, I want suggestions that fit the chapter I'm in, not just the
 neighbouring paragraph.
@@ -112,14 +112,14 @@ what changed.
 - One swap = one undo step.
 - The swapped text gets a short highlight that fades out.
 
-### 2.3 Word-level comparison — #14
+### 2.3 Word-level comparison ✅
 
 As P1, I want to compare my original and each suggestion word by word before
 committing, because the difference is often a single word.
 
 - Changed words are highlighted in each suggestion.
 
-### 2.4 Protected words — gap
+### 2.4 Protected words — #19
 
 As P1, I want some words — character names, invented terms, a deliberate
 repetition — to never be changed in suggestions.
@@ -147,7 +147,7 @@ Before, the English prompt left the model to guess the answer language.
 
 ## Epic 3 — A manuscript I can trust (Phase 2)
 
-### 3.1 Real files — #8, #9
+### 3.1 Real files ✅
 
 As P1, I want my manuscript saved as a real `.md` file in my own folder, so it
 survives browser resets and works with my backups and git.
@@ -170,7 +170,7 @@ week's newsletter.
 
 - Create, rename, delete and switch documents from a simple list.
 
-### 3.4 Crash recovery — #10
+### 3.4 Crash recovery ✅
 
 As any writer, I want to lose at most a few seconds of work after a crash or
 a closed tab.
@@ -189,7 +189,7 @@ for work under NDA.
 
 - The proxy only accepts local or private-network endpoints; there is no cloud code path.
 
-### 4.2 Visible local-only guarantee — gap
+### 4.2 Visible local-only guarantee — #16
 
 As P3, I want to *see* the guarantee in the app, not just trust the README.
 
@@ -207,7 +207,7 @@ Cheap, and it directly supports trust.
 As P4, I want to point Glossly at any OpenAI-compatible endpoint (or Ollama /
 LM Studio) and pick a model from its list.
 
-### 5.2 Clear message when the model is down — partial
+### 5.2 Clear message when the model is down — partial, #18
 
 As P4, I want a quiet, specific message when the model is down or still
 loading, instead of an unexplained spinner.
@@ -221,7 +221,7 @@ the cold-start case: llama-swap sends no bytes while it loads a model, so a
 slow load trips the idle timeout and looks like "The local model took too long
 to respond."
 
-### 5.3 Per-chip tuning — #13
+### 5.3 Per-chip tuning ✅
 
 As P4, I want to set temperature and a prompt template per chip, so Plainer
 can be conservative and More vivid adventurous.
@@ -257,7 +257,7 @@ before I click them.
 Built-in chips have plain-word tooltips; custom chips show their own
 instruction (`MarginNote.svelte`).
 
-### 6.3 Works out of the box — partial
+### 6.3 Works out of the box — partial, #17
 
 As P5, I want Glossly to work without knowing what an endpoint or a model is.
 
@@ -274,7 +274,10 @@ an empty page.
 
 - Starter templates: LinkedIn post, blog article, newsletter issue, cover letter, blank.
 
-### 6.5 See what a suggestion changes — #14
+Extended in Phase 4: German and English versions, more kinds of text (#20),
+and the writer's own templates (#21).
+
+### 6.5 See what a suggestion changes ✅
 
 As P5, I want to see *which* words a suggestion changes, so I learn by
 comparing instead of just swapping blindly.
@@ -295,7 +298,7 @@ than P1, which is fine as long as it stays opt-in.
 Two beginner features stay open. They don't fit v1, but neither is a
 non-goal forever. Each one can come in once its conditions are met.
 
-#### 6.7 Grammar and spelling check — deferred
+#### 6.7 Grammar and spelling check — deferred, measured in #22
 
 As P5, I want spelling, comma and grammar mistakes pointed out, because I
 don't always see them myself.
