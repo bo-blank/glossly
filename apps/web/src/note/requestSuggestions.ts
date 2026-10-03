@@ -5,6 +5,7 @@ import { fetchSuggestionsStream, SuggestRequestError } from '../providers/client
 import { snapToWordBoundaries } from './wordBoundary';
 import { expandToSentenceSelection } from './sentenceExpansion';
 import { cacheKey, get as cacheGet, set as cacheSet } from './suggestionCache';
+import { record, forPhrase } from './suggestionHistory';
 import type { SuggestionContext } from './contextExtraction';
 
 const DEBOUNCE_MS = 200;
@@ -23,9 +24,6 @@ let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 let activeController: AbortController | undefined;
 let lastRequestKey: string | undefined;
 let latestSelection: SelectionInfo | null = null;
-// Everything shown for the current selection so far, so "New suggestions" can
-// tell the model what not to repeat. Reset whenever the selection changes.
-let seenSuggestions: string[] = [];
 // Set around every programmatic ed.commands.setTextSelection() call (word-boundary snap,
 // sentence expansion). Tiptap's onSelectionUpdate fires for programmatic selection changes
 // exactly like user-driven ones, so without this guard each snap/expand would re-enter
@@ -43,6 +41,19 @@ function setSelectionSilently(ed: any, from: number, to: number) {
   }
 }
 
+const BUILT_IN_LABELS: Record<string, string> = {
+  tighter: 'Tighter',
+  vivid: 'More vivid',
+  plain: 'Plainer',
+  more: 'New suggestions'
+};
+
+function historyLabel(modifier: string | undefined, mode: SuggestionMode): string {
+  if (mode === 'sentence') return 'Rewrite sentence';
+  if (!modifier) return 'Suggestions';
+  return BUILT_IN_LABELS[modifier] ?? get(settingsStore).customModifiers.find((c) => c.id === modifier)?.label ?? 'Custom';
+}
+
 const MIN_LENGTH = 3;
 const MAX_LENGTH = 220;
 const MAX_SENTENCE_SELECT_LENGTH = 600;
@@ -56,7 +67,6 @@ export function onSelectionChange(info: SelectionInfo | null) {
 
   clearTimeout(debounceTimer);
   latestSelection = info;
-  seenSuggestions = [];
 
   if (!info || info.selectedText.length < MIN_LENGTH) {
     activeController?.abort();
@@ -139,7 +149,11 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
   if (modifier !== 'more' && key === lastRequestKey) return;
   lastRequestKey = key;
 
-  const previousSuggestions = modifier === 'more' && seenSuggestions.length ? [...seenSuggestions] : undefined;
+  // Everything shown for this phrase this session — also on earlier visits, and
+  // under any chip — so "New suggestions" can tell the model what not to repeat.
+  const seen = modifier === 'more' ? forPhrase(info.selectedText).map((e) => e.text) : [];
+  const previousSuggestions = seen.length ? seen : undefined;
+  const label = historyLabel(modifier, mode);
 
   const settings = get(settingsStore);
   // "New suggestions" is exempt from caching too — its whole purpose is fresh output.
@@ -161,7 +175,8 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
     if (cached) {
       activeController?.abort();
       activeController = undefined;
-      seenSuggestions.push(...cached.filter((s) => !seenSuggestions.includes(s)));
+      // Recorded before the store update: MarginNote derives "Earlier" from it.
+      record(info.selectedText, cached, label);
       noteStore.set({
         visible: true,
         loading: false,
@@ -206,7 +221,7 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
     });
 
     if (controller.signal.aborted) return;
-    seenSuggestions.push(...suggestions.filter((s) => !seenSuggestions.includes(s)));
+    record(info.selectedText, suggestions, label);
     if (cKey) cacheSet(cKey, suggestions);
     noteStore.update((n) => ({ ...n, loading: false, suggestions, error: null }));
   } catch (err) {

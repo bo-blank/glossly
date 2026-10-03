@@ -5,6 +5,7 @@
   import { settingsStore } from '../stores/settingsStore';
   import { requestWithModifier, requestSentenceRewrite, dismiss } from '../note/requestSuggestions';
   import { diffWords, type Segment } from '../note/wordDiff';
+  import { forPhrase } from '../note/suggestionHistory';
 
   // Tooltips say in plain words what each chip will do, for writers who don't
   // already think in terms of "register" or "concision". Custom chips show
@@ -29,6 +30,14 @@
   let activeIndex: number | null = $state(null);
   let originalSegments: Segment[] = $derived(
     activeIndex !== null && diffs[activeIndex] ? diffs[activeIndex].original : [{ text: $noteStore.original, kind: 'same' }]
+  );
+
+  // History isn't reactive itself; every record() lands just before a noteStore
+  // update, which re-runs this.
+  let earlier = $derived(
+    forPhrase($noteStore.original)
+      .filter((e) => !$noteStore.suggestions.includes(e.text))
+      .map((e) => ({ ...e, segments: diffWords($noteStore.original, e.text).suggestion }))
   );
 
   function applySuggestion(suggestion: string) {
@@ -175,6 +184,27 @@
             {/each}
           </div>
           <div class="text-xs opacity-60 mt-2">Alt+1–3 apply · Alt+N new · Esc dismiss</div>
+        {/if}
+        {#if earlier.length}
+          <!-- Below the chips, so expanding it never pushes them out of view. Keyed on the
+               phrase so a new selection starts collapsed again. -->
+          {#key $noteStore.original}
+            <details class="mt-2">
+              <summary class="text-xs opacity-70 cursor-pointer select-none py-1">Earlier ({earlier.length})</summary>
+              <div class="max-h-48 overflow-y-auto mt-1">
+                {#each earlier as entry (entry.text)}
+                  <button
+                    class="block w-full text-left rounded-md px-2 py-1.5 mb-1 hover:bg-base-200 focus:bg-base-200 transition-colors duration-150"
+                    onclick={() => applySuggestion(entry.text)}
+                    aria-label={`Apply earlier suggestion (${entry.label}): ${entry.text}`}
+                  >
+                    <span class="text-sm">{#each entry.segments as seg}{#if seg.kind === 'added'}<mark class="diff-added">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</span>
+                    <span class="block text-[0.65rem] opacity-50 mt-0.5">{entry.label}</span>
+                  </button>
+                {/each}
+              </div>
+            </details>
+          {/key}
         {/if}
       </div>
     {/if}
