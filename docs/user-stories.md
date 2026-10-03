@@ -3,7 +3,8 @@
 Stories for the quiet writing copilot, grouped by epic. Each one is checked
 against the roadmap filter in `docs/next-iteration-features.md`: does it make
 the phrase-suggestion loop faster, more trustworthy, or less disruptive to
-writing flow?
+writing flow, or, from Phase 5 on, does it help the writer see and shape the
+structure of the text?
 
 Status legend:
 
@@ -257,7 +258,7 @@ before I click them.
 Built-in chips have plain-word tooltips; custom chips show their own
 instruction (`MarginNote.svelte`).
 
-### 6.3 Works out of the box — partial, #17 (Phase 5)
+### 6.3 Works out of the box — partial, #17 (Phase 6)
 
 As P5, I want Glossly to work without knowing what an endpoint or a model is.
 
@@ -336,7 +337,7 @@ plus two that answer the measurement:
   (`bench-grammar`) with the skipping in place; its numbers go next to the
   first run in `docs/local-model-notes.md`.
 
-Not scheduled yet: Phase 5 is the web app. It gets its own plan.
+Not scheduled yet: Phase 5 is text architecture, Phase 6 the web app.
 
 #### 6.8 Help notes — deferred
 
@@ -362,6 +363,43 @@ Conditions before this becomes a real story:
   non-goal and would replace the writer's judgment.
 - **Scoring or grading the writing.** That's the dropped "writing coach"; the
   readability numbers in the dashboard are as far as it goes.
+
+---
+
+## Epic 7 — The shape of a text (Phase 5)
+
+Glossly so far works on how a sentence sounds. These stories are about how a
+text is built: its parts, what each part is for, and their order. P1 needs
+it for essays and long-form work, P2 for texts that follow a known pattern.
+
+### 7.1 Units of meaning as blocks — #25
+
+As P1, I want each unit of meaning in my text to be a block of its own,
+optionally named, so I think in parts instead of in a wall of paragraphs.
+
+- A block holds one or more paragraphs, headings, lists or quotes.
+- I split a block at the cursor and merge it with the one before, from the keyboard.
+- A name ("Einstieg", "These") is optional, shown quietly, never part of the text.
+- Templates start as named blocks that match their structure guide.
+- Markdown files keep the blocks without showing them in rendered Markdown.
+
+### 7.2 Reorder without cut and paste — #25
+
+As P1, I want to move a whole block to another place, so I can try a
+different order of argument without cut and paste.
+
+- The block moves as a whole, and one undo puts it back.
+- It works from the keyboard (Alt+Shift+↑/↓), with a drag handle beside the
+  block, in the outline and in the table of contents.
+
+### 7.3 See the outline next to the text — #25
+
+As P2, I want to see the parts of my text next to it, with what each part is
+for, so I notice a missing or misplaced part before I polish sentences.
+
+- The structure card lists the blocks by name (or first words) with their
+  length, and the template's hint for each part.
+- The table of contents groups its headings by block.
 
 ---
 

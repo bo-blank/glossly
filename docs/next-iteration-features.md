@@ -1,10 +1,14 @@
 # Glossly — Roadmap
 
-Glossly's strength is that it does *little*: a quiet editor in the margin. Every
-feature below had to pass one filter — does it make the phrase-suggestion loop
-faster, more trustworthy, or less disruptive to writing flow? Everything that
-needed its own intelligence layer, interrupted the writer, or amounted to a
-research project was cut (see the last section for what was dropped and why).
+Glossly's strength is that it does *little*: a quiet editor in the margin. Up
+to Phase 4 every feature had to pass one filter — does it make the
+phrase-suggestion loop faster, more trustworthy, or less disruptive to writing
+flow? From Phase 5 on, Glossly also grows from *how a sentence sounds* toward
+*how a text is built*, so a feature may instead help the writer see and shape
+the structure of the text. Neither kind may interrupt the writer or change
+anything without a click. Everything that needed its own intelligence layer
+or amounted to a research project was cut (see the last section for what was
+dropped and why).
 
 All features run entirely on-device; nothing leaves the machine.
 
@@ -135,7 +139,7 @@ struck through in the original while a suggestion is hovered or focused.
 
 Tauri on Linux renders with WebKitGTK, which has no File System Access API,
 so real files (#8) would have degraded to download/import. Decided instead:
-Glossly becomes a web app (Phase 5).
+Glossly becomes a web app (Phase 6).
 
 ---
 
@@ -150,7 +154,7 @@ goes, and starting from something. Plan:
 A status line shows where requests go ("local · 127.0.0.1:8080") and changes
 visibly for a LAN host.
 
-### 17. Find the local server — moved to Phase 5
+### 17. Find the local server — moved to Phase 6
 
 ### 18. Cold start reads as loading
 
@@ -181,7 +185,23 @@ it with e2b anyway, skipping quoted speech and re-measuring first — see story
 
 ---
 
-## Phase 5 — Glossly as a web app (pinned)
+## Phase 5 (v1.5) — Text architecture: blocks
+
+The first step from style toward structure. Plan:
+`docs/plans/phase-5-v1.5.md`.
+
+### 25. Blocks
+
+The document is made of blocks, one per unit of meaning, each with an
+optional name ("Einstieg", "These", "Beleg"). A block moves as a whole: in
+the outline of the structure card, in the table of contents, by a drag
+handle beside it, or with Alt+Shift+↑/↓. Templates start as named blocks that
+match their structure guide, and Markdown files keep the blocks as invisible
+comments.
+
+---
+
+## Phase 6 — Glossly as a web app (pinned)
 
 ### 23. Web app instead of desktop packaging
 
