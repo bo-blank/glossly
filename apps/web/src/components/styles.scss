@@ -151,6 +151,74 @@
     margin: 2rem 0;
   }
 
+  /* Blocks (Phase 5): one per unit of meaning. Calm by default — spacing and,
+     for a named block, its name; the extent shows only while working in it. */
+  .glossly-block {
+    position: relative;
+    padding-top: 1.5rem;
+    border-left: 2px solid transparent;
+    margin-left: -0.75rem;
+    padding-left: calc(0.75rem - 2px);
+    transition: border-color 0.15s;
+
+    & + .glossly-block {
+      margin-top: 1rem;
+    }
+
+    &:focus-within,
+    &:hover {
+      border-left-color: var(--gray-2);
+    }
+  }
+
+  .glossly-block-label {
+    position: absolute;
+    top: 0.1rem;
+    left: 0.75rem;
+    right: 0;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    user-select: none;
+  }
+
+  .glossly-block-name {
+    color: var(--gray-4);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-transform: inherit;
+    letter-spacing: inherit;
+
+    &:hover,
+    &:focus-visible {
+      color: inherit;
+    }
+  }
+
+  /* Unnamed: the invitation to name it shows on hover or keyboard focus only. */
+  .glossly-block:not(.is-named):not(:hover) .glossly-block-name:not(:focus-visible) {
+    opacity: 0;
+  }
+
+  .glossly-block-input {
+    font: inherit;
+    text-transform: none;
+    letter-spacing: normal;
+    color: inherit;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--gray-3);
+    outline: none;
+    padding: 0;
+    width: 20rem;
+    max-width: 100%;
+  }
+
   /* Placeholder (first line only, when the doc is empty) */
   p.is-editor-empty:first-child::before {
     color: var(--gray-4);

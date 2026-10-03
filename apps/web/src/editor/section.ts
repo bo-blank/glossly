@@ -1,5 +1,7 @@
 import { createDocument, Node, type JSONContent } from '@tiptap/core';
 import type { Node as PMNode, Schema } from 'prosemirror-model';
+import type { Command } from 'prosemirror-state';
+import { sectionView } from './sectionView';
 
 // Phase 5: the document is made of blocks, one per unit of meaning. A block is
 // a `section` node with an optional name; it is not in the `block` group, so
@@ -36,8 +38,93 @@ export const Section = Node.create({
 
   renderHTML({ node }) {
     return ['section', { 'data-block': node.attrs.name }, 0];
+  },
+
+  addNodeView() {
+    return sectionView;
+  },
+
+  addKeyboardShortcuts() {
+    const run = (command: Command) => () => command(this.editor.state, this.editor.view.dispatch);
+    return {
+      'Mod-Shift-Enter': run(splitSection),
+      Backspace: run(joinSectionBackward),
+      Delete: run(joinSectionForward)
+    };
   }
 });
+
+/**
+ * New block from the cursor on (Mod+Shift+Enter). In the middle or at the end
+ * of a paragraph the paragraph splits too; at its start, or anywhere in a
+ * list or quote, the block splits before that paragraph, list or quote.
+ * Nothing happens where the new block would be empty before the cursor.
+ */
+export const splitSection: Command = (state, dispatch) => {
+  const { $from, empty } = state.selection;
+  if (!empty || $from.depth < 2) return false;
+  // The new block starts unnamed; split would copy the name otherwise.
+  const unnamed = { type: state.schema.nodes.section, attrs: { name: '' } };
+  if ($from.depth === 2 && $from.parent.isTextblock && $from.parentOffset > 0) {
+    dispatch?.(state.tr.split($from.pos, 2, [unnamed, null]).scrollIntoView());
+    return true;
+  }
+  if ($from.index(1) === 0) return false;
+  dispatch?.(state.tr.split($from.before(2), 1, [unnamed]).scrollIntoView());
+  return true;
+};
+
+/** Whether the cursor sits at the very start (or end) of its block's text. */
+function atSectionEdge(state: Parameters<Command>[0], side: 'start' | 'end'): number | null {
+  const { $from, empty } = state.selection;
+  if (!empty || $from.depth < 2 || !$from.parent.isTextblock) return null;
+  if (side === 'start' ? $from.parentOffset !== 0 : $from.parentOffset !== $from.parent.content.size) return null;
+  for (let d = $from.depth; d >= 2; d--) {
+    const index = $from.index(d - 1);
+    if (side === 'start' ? index !== 0 : index !== $from.node(d - 1).childCount - 1) return null;
+  }
+  return $from.index(0);
+}
+
+/** Joins the blocks around `boundary`; the merged block keeps the first name it finds. */
+function joinAt(state: Parameters<Command>[0], dispatch: Parameters<Command>[1], boundary: number): boolean {
+  const before = state.doc.resolve(boundary).nodeBefore!;
+  const after = state.doc.resolve(boundary).nodeAfter!;
+  const tr = state.tr.join(boundary);
+  const sectionStart = boundary - before.nodeSize;
+  tr.setNodeMarkup(sectionStart, undefined, { ...before.attrs, name: before.attrs.name || after.attrs.name });
+  dispatch?.(tr.scrollIntoView());
+  return true;
+}
+
+/**
+ * Backspace at the very start of a block merges it into the one before; the
+ * paragraphs stay apart. A second Backspace then joins them as usual.
+ */
+export const joinSectionBackward: Command = (state, dispatch) => {
+  const index = atSectionEdge(state, 'start');
+  if (index === null || index === 0) return false;
+  return joinAt(state, dispatch, state.selection.$from.before(1));
+};
+
+/** Delete at the very end of a block merges the next one into it. */
+export const joinSectionForward: Command = (state, dispatch) => {
+  const index = atSectionEdge(state, 'end');
+  if (index === null || index === state.doc.childCount - 1) return false;
+  return joinAt(state, dispatch, state.selection.$from.after(1));
+};
+
+/** Names the block at `pos` (empty = unnamed), cleaned as stored. One undo step. */
+export function renameSection(pos: number, name: string): Command {
+  return (state, dispatch) => {
+    const node = state.doc.nodeAt(pos);
+    if (node?.type.name !== 'section') return false;
+    const clean = cleanSectionName(name);
+    if (clean === node.attrs.name) return false;
+    dispatch?.(state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, name: clean }));
+    return true;
+  };
+}
 
 export const SECTION_NAME_MAX = 60;
 

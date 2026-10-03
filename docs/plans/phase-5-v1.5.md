@@ -50,7 +50,7 @@ The web app moves from Phase 5 to Phase 6, at the writer's decision
 | --- | --- | --- | --- |
 | A | Documents and Markdown files **without** block markers: how are they split? | **Decided 2026-10-03:** a new block before every H1/H2, unless the block so far holds only headings (a title stays with the chapter heading under it); no headings → one block | WP1 |
 | B | Write markers into the writer's `.md` files always, or only when needed? | **Decided 2026-10-03:** only when the blocks differ from what rule A would derive or a block has a name. A file that rule A reproduces stays untouched | WP2 |
-| C | Block name in the text: always visible, or only on hover/focus? | Always visible when the block is named, small and grey above the block. Unnamed blocks show nothing until hovered | WP3 |
+| C | Block name in the text: always visible, or only on hover/focus? | **Decided 2026-10-03:** always visible when the block is named, small and grey above the block. Unnamed blocks show nothing until hovered | WP3 |
 | E | Table of contents: blocks without a heading, how do they show? | As a short grey entry (first ~4 words), so every block can be grabbed there too. Headings stay the normal entries | WP5b |
 | D | Templates: which parts become their own block? (e.g. salutation and sign-off of the e-mail/cover letter) | Salutation goes into the first block and sign-off into the last; guide sections map 1:1 to blocks | WP6 |
 
