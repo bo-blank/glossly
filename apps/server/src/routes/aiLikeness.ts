@@ -1,13 +1,8 @@
 import { Router } from 'express';
-import { openAICompatibleProvider } from '../providers/openaiCompatible';
-import { LLMProvider, SuggestError } from '../providers/types';
+import type { AiLikenessRequestBody } from '@glossly/shared';
+import { resolveProvider } from '../providers/registry';
+import { SuggestError } from '../providers/types';
 import { resolveTimeout, validateLocalBaseUrl } from '../util/validate';
-
-const providers: Record<string, LLMProvider> = {
-  'openai-compatible': openAICompatibleProvider,
-  ollama: openAICompatibleProvider,
-  lmstudio: openAICompatibleProvider
-};
 
 export const aiLikenessRouter = Router();
 
@@ -15,16 +10,21 @@ const MIN_LENGTH = 100;
 const MAX_LENGTH = 24000;
 
 aiLikenessRouter.post('/api/ai-likeness', async (req, res) => {
-  const { provider, model, baseUrl: rawBaseUrl, apiKey, text, timeout } = req.body ?? {};
+  const { provider, model, baseUrl: rawBaseUrl, apiKey, text, timeout }: Partial<Record<keyof AiLikenessRequestBody, unknown>> = req.body ?? {};
 
   if (typeof text !== 'string' || text.length < MIN_LENGTH) {
     res.status(400).json({ error: 'bad_response', message: `text must be at least ${MIN_LENGTH} characters.` });
     return;
   }
 
-  const impl = providers[provider];
+  const impl = resolveProvider(provider);
   if (!impl) {
-    res.status(400).json({ error: 'bad_response', message: `Unknown provider "${provider}".` });
+    res.status(400).json({ error: 'bad_response', message: `Unknown provider "${String(provider)}".` });
+    return;
+  }
+
+  if (apiKey !== undefined && typeof apiKey !== 'string') {
+    res.status(400).json({ error: 'bad_response', message: 'apiKey must be a string.' });
     return;
   }
 

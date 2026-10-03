@@ -1,17 +1,42 @@
+import type {
+  AiLikenessRequestBody,
+  AiLikenessResult,
+  ApiError,
+  ModelTarget,
+  ModifierDefaults,
+  SuggestionContext,
+  SuggestRequestBody,
+  SuggestResponse,
+  SuggestStreamEvents
+} from '@glossly/shared';
 import type { Settings } from '../stores/settingsStore';
-import type { SuggestionContext } from '../note/contextExtraction';
 
-export interface SuggestParams {
+export type { AiLikenessResult } from '@glossly/shared';
+
+export interface SuggestParams
+  extends Pick<SuggestRequestBody, 'selectedText' | 'modifier' | 'modifierInstruction' | 'instructionOverride' | 'temperature' | 'mode' | 'previousSuggestions'> {
   settings: Settings;
-  selectedText: string;
   context: SuggestionContext;
-  modifier?: string;
-  modifierInstruction?: string;
-  instructionOverride?: string;
-  temperature?: number;
-  mode?: 'phrase' | 'sentence';
-  previousSuggestions?: string[];
   signal: AbortSignal;
+}
+
+function modelTarget(settings: Settings): ModelTarget {
+  return {
+    provider: settings.provider,
+    model: settings.model,
+    baseUrl: settings.endpointUrl,
+    apiKey: settings.apiKey || undefined,
+    timeout: settings.timeout
+  };
+}
+
+function suggestBody({ settings, signal: _signal, ...request }: SuggestParams, stream?: true): SuggestRequestBody {
+  return { ...modelTarget(settings), ...request, stream };
+}
+
+/** An error response's body, or null when it is not JSON. */
+async function errorBody(response: Response): Promise<Partial<ApiError> | null> {
+  return response.json().catch(() => null);
 }
 
 export class SuggestRequestError extends Error {
@@ -23,46 +48,20 @@ export class SuggestRequestError extends Error {
   }
 }
 
-export async function fetchSuggestions({
-  settings,
-  selectedText,
-  context,
-  modifier,
-  modifierInstruction,
-  instructionOverride,
-  temperature,
-  mode,
-  previousSuggestions,
-  signal
-}: SuggestParams): Promise<string[]> {
+export async function fetchSuggestions(params: SuggestParams): Promise<string[]> {
   const response = await fetch('/api/suggest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      provider: settings.provider,
-      model: settings.model,
-      baseUrl: settings.endpointUrl,
-      apiKey: settings.apiKey || undefined,
-      timeout: settings.timeout,
-      selectedText,
-      context,
-      modifier,
-      modifierInstruction,
-      instructionOverride,
-      temperature,
-      mode,
-      previousSuggestions
-    }),
-    signal
+    body: JSON.stringify(suggestBody(params)),
+    signal: params.signal
   });
 
-  const body = await response.json().catch(() => null);
-
   if (!response.ok) {
+    const body = await errorBody(response);
     throw new SuggestRequestError(body?.error ?? 'bad_response', body?.message ?? 'The request failed.');
   }
 
-  return body.suggestions as string[];
+  return ((await response.json()) as SuggestResponse).suggestions;
 }
 
 export interface SuggestStreamParams extends SuggestParams {
@@ -84,44 +83,17 @@ function parseSseFrame(frame: string): { event: string; data: string } | null {
  * text/event-stream is a pre-stream validation failure (bad selectedText/provider/
  * baseUrl/model) and is parsed as plain JSON, same as `fetchSuggestions`.
  */
-export async function fetchSuggestionsStream({
-  settings,
-  selectedText,
-  context,
-  modifier,
-  modifierInstruction,
-  instructionOverride,
-  temperature,
-  mode,
-  previousSuggestions,
-  signal,
-  onSuggestion
-}: SuggestStreamParams): Promise<string[]> {
+export async function fetchSuggestionsStream({ onSuggestion, ...params }: SuggestStreamParams): Promise<string[]> {
   const response = await fetch('/api/suggest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      provider: settings.provider,
-      model: settings.model,
-      baseUrl: settings.endpointUrl,
-      apiKey: settings.apiKey || undefined,
-      timeout: settings.timeout,
-      selectedText,
-      context,
-      modifier,
-      modifierInstruction,
-      instructionOverride,
-      temperature,
-      mode,
-      previousSuggestions,
-      stream: true
-    }),
-    signal
+    body: JSON.stringify(suggestBody(params, true)),
+    signal: params.signal
   });
 
   const contentType = response.headers.get('content-type') ?? '';
   if (!contentType.includes('text/event-stream')) {
-    const body = await response.json().catch(() => null);
+    const body = await errorBody(response);
     throw new SuggestRequestError(body?.error ?? 'bad_response', body?.message ?? 'The request failed.');
   }
   if (!response.body) {
@@ -146,12 +118,12 @@ export async function fetchSuggestionsStream({
       if (!parsed) continue;
 
       if (parsed.event === 'suggestion') {
-        const data = JSON.parse(parsed.data) as { index: number; text: string };
+        const data = JSON.parse(parsed.data) as SuggestStreamEvents['suggestion'];
         onSuggestion(data.index, data.text);
       } else if (parsed.event === 'done') {
-        finalSuggestions = (JSON.parse(parsed.data) as { suggestions: string[] }).suggestions;
+        finalSuggestions = (JSON.parse(parsed.data) as SuggestStreamEvents['done']).suggestions;
       } else if (parsed.event === 'error') {
-        const data = JSON.parse(parsed.data) as { error: string; message: string };
+        const data = JSON.parse(parsed.data) as SuggestStreamEvents['error'];
         throw new SuggestRequestError(data.error, data.message);
       }
     }
@@ -169,40 +141,20 @@ export interface AiLikenessParams {
   signal: AbortSignal;
 }
 
-export interface AiLikenessResult {
-  score: number;
-  label: string;
-  rationale: string;
-}
-
 export async function fetchAiLikeness({ settings, text, signal }: AiLikenessParams): Promise<AiLikenessResult> {
   const response = await fetch('/api/ai-likeness', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      provider: settings.provider,
-      model: settings.model,
-      baseUrl: settings.endpointUrl,
-      apiKey: settings.apiKey || undefined,
-      timeout: settings.timeout,
-      text
-    }),
+    body: JSON.stringify({ ...modelTarget(settings), text } satisfies AiLikenessRequestBody),
     signal
   });
 
-  const body = await response.json().catch(() => null);
-
   if (!response.ok) {
+    const body = await errorBody(response);
     throw new SuggestRequestError(body?.error ?? 'bad_response', body?.message ?? 'The request failed.');
   }
 
-  return body as AiLikenessResult;
-}
-
-export interface ModifierDefaults {
-  /** The built-in style chips' instructions, keyed by chip id. */
-  defaults: Record<string, string>;
-  temperature: number;
+  return (await response.json()) as AiLikenessResult;
 }
 
 export async function fetchModifierDefaults(): Promise<ModifierDefaults> {

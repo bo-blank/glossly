@@ -38,6 +38,7 @@ Glossly is a privacy-first writing assistant that provides alternative phrasings
 - **Dashboard** - readability stats and AI-likeness detector
 - **SettingsPanel** - Provider and model configuration
 - **Local Proxy** (`apps/server`) - CORS-safe forwarding to LLM providers
+- **Shared contract** (`packages/shared`) - request/response types and limits both sides import
 
 ### Data Flow
 
@@ -59,7 +60,7 @@ Glossly is a privacy-first writing assistant that provides alternative phrasings
 git clone https://github.com/your-repo/glossly.git
 cd glossly
 
-npm install                     # installs all workspaces (root, apps/web, apps/server)
+npm install                     # installs all workspaces (root, apps/web, apps/server, packages/shared)
 
 cp .env.example apps/server/.env
 ```

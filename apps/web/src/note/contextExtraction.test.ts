@@ -1,9 +1,10 @@
 import { getSchema } from '@tiptap/core';
 import type { Node as PMNode } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
+import { MAX_CONTEXT_CHARS } from '@glossly/shared';
 import { fromMarkdown } from '../editor/markdown';
 import { schemaExtensions } from '../editor/schemaExtensions';
-import { detectAddress, extractContext } from './contextExtraction';
+import { detectAddress, extractContext, CONTEXT_BUDGET } from './contextExtraction';
 
 const schema = getSchema(schemaExtensions);
 const doc = (md: string) => fromMarkdown(md, schema);
@@ -172,5 +173,11 @@ describe('detectAddress', () => {
 
   it('is left out of an English document', () => {
     expect(address('Please let me know. I would like to discuss it with you.', 'discuss')).toBeUndefined();
+  });
+});
+
+describe('CONTEXT_BUDGET', () => {
+  it('fits what the server accepts, with room for title and headings', () => {
+    expect(CONTEXT_BUDGET).toBeLessThanOrEqual(MAX_CONTEXT_CHARS / 2);
   });
 });

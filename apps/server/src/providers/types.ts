@@ -1,31 +1,13 @@
-export type Modifier = 'tighter' | 'vivid' | 'plain' | 'more';
-export type SuggestionMode = 'phrase' | 'sentence';
+import type { AiLikenessResult, ApiErrorKind, SuggestRequestBody } from '@glossly/shared';
 
-/**
- * Where the selection sits in the document. `before` and `after` stop at the
- * selection itself, so the prompt can mark its exact position. Mirrored by hand
- * in apps/web/src/note/contextExtraction.ts — there is no shared package.
- */
-export interface SuggestionContext {
-  title: string;
-  headingPath: string[];
-  before: string;
-  after: string;
-  /** German form of address, when the client could tell. */
-  address?: 'du' | 'Sie';
-}
+export type { AiLikenessResult, BuiltInModifier as Modifier, SuggestionContext, SuggestionMode } from '@glossly/shared';
 
-export interface SuggestionRequest {
-  selectedText: string;
-  // A plain string from clients older than Phase 3.
-  context: string | SuggestionContext;
-  modifier?: Modifier | string;
-  modifierInstruction?: string;
-  /** Replaces the instruction of any style modifier, built-ins included. */
-  instructionOverride?: string;
-  temperature?: number;
-  mode?: SuggestionMode;
-  previousSuggestions?: string[];
+/** A validated SuggestRequestBody, ready for a provider. */
+export interface SuggestionRequest
+  extends Pick<
+    SuggestRequestBody,
+    'selectedText' | 'context' | 'modifier' | 'modifierInstruction' | 'instructionOverride' | 'temperature' | 'mode' | 'previousSuggestions'
+  > {
   model: string;
   baseUrl: string;
   apiKey?: string;
@@ -33,7 +15,7 @@ export interface SuggestionRequest {
   signal: AbortSignal;
 }
 
-export type SuggestErrorKind = 'timeout' | 'connection_refused' | 'bad_response' | 'not_implemented';
+export type SuggestErrorKind = ApiErrorKind;
 
 export class SuggestError extends Error {
   kind: SuggestErrorKind;
@@ -51,12 +33,6 @@ export interface AiLikenessRequest {
   apiKey?: string;
   timeout: number;
   signal: AbortSignal;
-}
-
-export interface AiLikenessResult {
-  score: number;
-  label: string;
-  rationale: string;
 }
 
 export interface SuggestionStreamEvent {

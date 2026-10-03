@@ -1,4 +1,4 @@
-import type { SuggestionContext } from './contextExtraction';
+import type { SuggestionContext } from '@glossly/shared';
 
 const CAPACITY = 100;
 

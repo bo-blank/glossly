@@ -1,18 +1,5 @@
 import type { Node as PMNode } from 'prosemirror-model';
-
-/** Mirrors SuggestionContext in apps/server/src/providers/types.ts — there is no shared package. */
-export interface SuggestionContext {
-  title: string;
-  headingPath: string[];
-  /** Text before the selection, nearest last. */
-  before: string;
-  /** Text after the selection, nearest first. */
-  after: string;
-  /** German form of address, when the text settles it. */
-  address?: AddressForm;
-}
-
-export type AddressForm = 'du' | 'Sie';
+import type { AddressForm, SuggestionContext } from '@glossly/shared';
 
 const DU_FORMS = /\b(?:du|dich|dir|dein(?:e[mnrs]?)?|euch|euer|eure[mnrs]?)\b/gi;
 // Capitalized only: lowercase "sie"/"ihnen" is she/they/them.

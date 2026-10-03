@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_CONTEXT_CHARS, parseContext, parseInstruction, parseTemperature } from './validate';
+import { MAX_CONTEXT_CHARS } from '@glossly/shared';
+import { parseContext, parseInstruction, parseTemperature } from './validate';
 
 const valid = { title: 'T', headingPath: ['A', 'B'], before: 'vorher ', after: ' nachher' };
 

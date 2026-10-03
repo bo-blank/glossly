@@ -1,10 +1,9 @@
 <!-- components/TuneChips.svelte -->
 <script lang="ts">
   import { settingsStore, persistSettings, type ModifierTuning } from '../stores/settingsStore';
-  import { fetchModifierDefaults, type ModifierDefaults } from '../providers/client';
+  import { fetchModifierDefaults } from '../providers/client';
   import { BUILT_IN_LABELS } from '../note/requestSuggestions';
-
-  const INSTRUCTION_MAX = 300;
+  import { MAX_INSTRUCTION_CHARS, MAX_TEMPERATURE, type ModifierDefaults } from '@glossly/shared';
 
   // "New suggestions" and "Rewrite sentence" are actions, not styles — not tunable.
   const builtIns = Object.entries(BUILT_IN_LABELS)
@@ -47,7 +46,7 @@
   }
 
   function setInstruction(id: string, value: string, defaultInstruction: string) {
-    const text = value.trim().slice(0, INSTRUCTION_MAX);
+    const text = value.trim().slice(0, MAX_INSTRUCTION_CHARS);
     // Blank or back to the default is the same as untuned.
     setTuning(id, (t) => ({ ...t, instruction: text && text !== defaultInstruction ? text : undefined }));
   }
@@ -88,7 +87,7 @@
               type="range"
               class="range range-xs"
               min="0"
-              max="1.5"
+              max={MAX_TEMPERATURE}
               step="0.1"
               value={temperature}
               onchange={(e) => setTemperature(chip.id, Number(e.currentTarget.value))}
@@ -104,7 +103,7 @@
             <textarea
               class="textarea textarea-bordered textarea-sm w-full"
               rows="2"
-              maxlength={INSTRUCTION_MAX}
+              maxlength={MAX_INSTRUCTION_CHARS}
               value={tuning?.instruction ?? chip.defaultInstruction}
               onchange={(e) => {
                 setInstruction(chip.id, e.currentTarget.value, chip.defaultInstruction);

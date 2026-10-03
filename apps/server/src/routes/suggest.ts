@@ -1,29 +1,40 @@
-import { Router } from 'express';
-import { DEFAULT_TEMPERATURE, openAICompatibleProvider } from '../providers/openaiCompatible';
+import { Router, type Response } from 'express';
+import { DEFAULT_TEMPERATURE } from '../providers/openaiCompatible';
+import { resolveProvider } from '../providers/registry';
 import { styleDefaults } from '../providers/prompt';
-import { LLMProvider, SuggestError } from '../providers/types';
+import { SuggestError } from '../providers/types';
 import {
   MAX_CONTEXT_CHARS,
   MAX_INSTRUCTION_CHARS,
+  MAX_PHRASE_CHARS,
+  MAX_PREVIOUS_SUGGESTIONS,
+  MAX_SENTENCE_CHARS,
   MAX_TEMPERATURE,
-  parseContext,
-  parseInstruction,
-  parseTemperature,
-  resolveTimeout,
-  validateLocalBaseUrl
-} from '../util/validate';
+  MIN_SELECTION_CHARS,
+  type ModifierDefaults,
+  type SuggestionMode,
+  type SuggestRequestBody,
+  type SuggestStreamEvents
+} from '@glossly/shared';
+import { parseContext, parseInstruction, parseTemperature, resolveTimeout, validateLocalBaseUrl } from '../util/validate';
 
-const providers: Record<string, LLMProvider> = {
-  'openai-compatible': openAICompatibleProvider,
-  ollama: openAICompatibleProvider,
-  lmstudio: openAICompatibleProvider
-};
+function sendEvent<E extends keyof SuggestStreamEvents>(res: Response, event: E, data: SuggestStreamEvents[E]) {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
+function isMode(mode: unknown): mode is SuggestionMode {
+  return mode === 'phrase' || mode === 'sentence';
+}
+
+// Built-in names or a custom chip's UUID.
+const MAX_MODIFIER_ID_CHARS = 64;
 
 export const suggestRouter = Router();
 
 // The tuning UI prefills from these; they live only in prompt.ts so they cannot drift.
 suggestRouter.get('/api/modifiers', (_req, res) => {
-  res.json({ defaults: styleDefaults(), temperature: DEFAULT_TEMPERATURE });
+  const body: ModifierDefaults = { defaults: styleDefaults(), temperature: DEFAULT_TEMPERATURE };
+  res.json(body);
 });
 
 suggestRouter.post('/api/suggest', async (req, res) => {
@@ -42,21 +53,21 @@ suggestRouter.post('/api/suggest', async (req, res) => {
     previousSuggestions,
     timeout,
     stream
-  } = req.body ?? {};
+  }: Partial<Record<keyof SuggestRequestBody, unknown>> = req.body ?? {};
 
-  if (mode !== undefined && mode !== 'phrase' && mode !== 'sentence') {
+  if (mode !== undefined && !isMode(mode)) {
     res.status(400).json({ error: 'bad_response', message: 'mode must be "phrase" or "sentence".' });
     return;
   }
-  const maxLength = mode === 'sentence' ? 600 : 220;
+  const maxLength = mode === 'sentence' ? MAX_SENTENCE_CHARS : MAX_PHRASE_CHARS;
 
-  if (typeof selectedText !== 'string' || selectedText.length < 3 || selectedText.length > maxLength) {
-    res.status(400).json({ error: 'bad_response', message: `selectedText must be 3-${maxLength} characters.` });
+  if (typeof selectedText !== 'string' || selectedText.length < MIN_SELECTION_CHARS || selectedText.length > maxLength) {
+    res.status(400).json({ error: 'bad_response', message: `selectedText must be ${MIN_SELECTION_CHARS}-${maxLength} characters.` });
     return;
   }
 
-  if (modifierInstruction !== undefined && (typeof modifierInstruction !== 'string' || modifierInstruction.length > 300)) {
-    res.status(400).json({ error: 'bad_response', message: 'modifierInstruction must be a string of at most 300 characters.' });
+  if (modifierInstruction !== undefined && (typeof modifierInstruction !== 'string' || modifierInstruction.length > MAX_INSTRUCTION_CHARS)) {
+    res.status(400).json({ error: 'bad_response', message: `modifierInstruction must be a string of at most ${MAX_INSTRUCTION_CHARS} characters.` });
     return;
   }
 
@@ -81,9 +92,19 @@ suggestRouter.post('/api/suggest', async (req, res) => {
     return;
   }
 
-  const impl = providers[provider];
+  if (modifier !== undefined && (typeof modifier !== 'string' || !modifier || modifier.length > MAX_MODIFIER_ID_CHARS)) {
+    res.status(400).json({ error: 'bad_response', message: `modifier must be a chip id of at most ${MAX_MODIFIER_ID_CHARS} characters.` });
+    return;
+  }
+
+  const impl = resolveProvider(provider);
   if (!impl) {
-    res.status(400).json({ error: 'bad_response', message: `Unknown provider "${provider}".` });
+    res.status(400).json({ error: 'bad_response', message: `Unknown provider "${String(provider)}".` });
+    return;
+  }
+
+  if (apiKey !== undefined && typeof apiKey !== 'string') {
+    res.status(400).json({ error: 'bad_response', message: 'apiKey must be a string.' });
     return;
   }
 
@@ -99,7 +120,7 @@ suggestRouter.post('/api/suggest', async (req, res) => {
   }
 
   const previous = Array.isArray(previousSuggestions)
-    ? previousSuggestions.filter((s: unknown): s is string => typeof s === 'string').slice(0, 12)
+    ? previousSuggestions.filter((s: unknown): s is string => typeof s === 'string').slice(0, MAX_PREVIOUS_SUGGESTIONS)
     : undefined;
 
   const controller = new AbortController();
@@ -135,9 +156,9 @@ suggestRouter.post('/api/suggest', async (req, res) => {
 
     try {
       const suggestions = await impl.streamSuggestions(requestInput, (event) => {
-        res.write(`event: suggestion\ndata: ${JSON.stringify({ index: event.index, text: event.text })}\n\n`);
+        sendEvent(res, 'suggestion', { index: event.index, text: event.text });
       });
-      res.write(`event: done\ndata: ${JSON.stringify({ suggestions })}\n\n`);
+      sendEvent(res, 'done', { suggestions });
       res.end();
     } catch (err) {
       if (controller.signal.aborted) {
@@ -145,8 +166,8 @@ suggestRouter.post('/api/suggest', async (req, res) => {
         return; // client disconnected/superseded the request — nothing more to send
       }
       const { kind, message } =
-        err instanceof SuggestError ? { kind: err.kind, message: err.message } : { kind: 'bad_response', message: (err as Error).message };
-      res.write(`event: error\ndata: ${JSON.stringify({ error: kind, message })}\n\n`);
+        err instanceof SuggestError ? { kind: err.kind, message: err.message } : { kind: 'bad_response' as const, message: (err as Error).message };
+      sendEvent(res, 'error', { error: kind, message });
       res.end();
     }
     return;

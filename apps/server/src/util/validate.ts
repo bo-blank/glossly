@@ -1,4 +1,4 @@
-import type { SuggestionContext } from '../providers/types';
+import { MAX_CONTEXT_CHARS, MAX_HEADING_PATH, MAX_INSTRUCTION_CHARS, MAX_TEMPERATURE, type SuggestionContext } from '@glossly/shared';
 
 // Glossly is local-only by contract ("zero network calls outside localhost").
 // The proxy fetches whatever baseUrl the client hands it, so without this check
@@ -20,9 +20,6 @@ export function validateLocalBaseUrl(baseUrl: unknown): string | null {
   return baseUrl;
 }
 
-export const MAX_CONTEXT_CHARS = 8000;
-const MAX_HEADING_PATH = 6;
-
 /**
  * Accepts a plain-string context (older clients) or a SuggestionContext.
  * Returns null when the shape is wrong or the total exceeds MAX_CONTEXT_CHARS —
@@ -42,16 +39,12 @@ export function parseContext(raw: unknown): string | SuggestionContext | null {
   return { title, headingPath, before, after, ...(address && { address }) };
 }
 
-export const MAX_TEMPERATURE = 1.5;
-
 /** undefined when absent, null when present but not a number in 0–MAX_TEMPERATURE. */
 export function parseTemperature(raw: unknown): number | undefined | null {
   if (raw === undefined) return undefined;
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0 || raw > MAX_TEMPERATURE) return null;
   return raw;
 }
-
-export const MAX_INSTRUCTION_CHARS = 300;
 
 /** undefined when absent, null when present but not a non-blank string of at most MAX_INSTRUCTION_CHARS. */
 export function parseInstruction(raw: unknown): string | undefined | null {

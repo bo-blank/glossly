@@ -6,7 +6,7 @@ import { snapToWordBoundaries } from './wordBoundary';
 import { expandToSentenceSelection } from './sentenceExpansion';
 import { cacheKey, get as cacheGet, set as cacheSet } from './suggestionCache';
 import { record, forPhrase } from './suggestionHistory';
-import type { SuggestionContext } from './contextExtraction';
+import { MAX_PHRASE_CHARS, MAX_SENTENCE_CHARS, MIN_SELECTION_CHARS, type SuggestionContext, type SuggestionMode } from '@glossly/shared';
 
 const DEBOUNCE_MS = 200;
 
@@ -17,8 +17,6 @@ export interface SelectionInfo {
   to: number;
   screenPos: { left: number; bottom: number } | null;
 }
-
-type SuggestionMode = 'phrase' | 'sentence';
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 let activeController: AbortController | undefined;
@@ -54,9 +52,6 @@ function historyLabel(modifier: string | undefined, mode: SuggestionMode): strin
   return BUILT_IN_LABELS[modifier] ?? get(settingsStore).customModifiers.find((c) => c.id === modifier)?.label ?? 'Custom';
 }
 
-const MIN_LENGTH = 3;
-const MAX_LENGTH = 220;
-const MAX_SENTENCE_SELECT_LENGTH = 600;
 
 /** Called on every Tiptap selectionUpdate. Debounces, and hides the note for empty/too-short selections. */
 export function onSelectionChange(info: SelectionInfo | null) {
@@ -68,23 +63,23 @@ export function onSelectionChange(info: SelectionInfo | null) {
   clearTimeout(debounceTimer);
   latestSelection = info;
 
-  if (!info || info.selectedText.length < MIN_LENGTH) {
+  if (!info || info.selectedText.length < MIN_SELECTION_CHARS) {
     activeController?.abort();
     lastRequestKey = undefined;
     noteStore.set({ visible: false, loading: false, suggestions: [], original: '', error: null, position: null, sentenceRewriteEligible: false });
     return;
   }
 
-  if (info.selectedText.length > MAX_LENGTH) {
+  if (info.selectedText.length > MAX_PHRASE_CHARS) {
     activeController?.abort();
     lastRequestKey = undefined;
-    const sentenceEligible = info.selectedText.length <= MAX_SENTENCE_SELECT_LENGTH;
+    const sentenceEligible = info.selectedText.length <= MAX_SENTENCE_CHARS;
     noteStore.set({
       visible: true,
       loading: false,
       suggestions: [],
       original: info.selectedText,
-      error: `That's ${info.selectedText.length} characters — select a shorter phrase (up to ${MAX_LENGTH}).`,
+      error: `That's ${info.selectedText.length} characters — select a shorter phrase (up to ${MAX_PHRASE_CHARS}).`,
       position: info.screenPos ? { x: info.screenPos.left, y: info.screenPos.bottom } : null,
       sentenceRewriteEligible: sentenceEligible
     });

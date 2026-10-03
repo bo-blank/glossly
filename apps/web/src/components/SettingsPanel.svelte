@@ -4,9 +4,9 @@
   import { settingsStore, persistSettings } from '../stores/settingsStore';
   import { fetchModels } from '../providers/client';
   import TuneChips from './TuneChips.svelte';
+  import { MAX_INSTRUCTION_CHARS } from '@glossly/shared';
 
   const LABEL_MAX = 24;
-  const INSTRUCTION_MAX = 300;
 
   let models: string[] = [];
   let modelsError = '';
@@ -21,7 +21,7 @@
 
   function addCustomModifier() {
     const label = newLabel.trim().slice(0, LABEL_MAX);
-    const instruction = newInstruction.trim().slice(0, INSTRUCTION_MAX);
+    const instruction = newInstruction.trim().slice(0, MAX_INSTRUCTION_CHARS);
     if (!label || !instruction) return;
 
     $settingsStore.customModifiers = [...$settingsStore.customModifiers, { id: crypto.randomUUID(), label, instruction }];
@@ -200,7 +200,7 @@
       <textarea
         class="textarea textarea-bordered textarea-sm"
         placeholder="Instruction sent to the model (e.g. Make each alternative more formal in register.)"
-        maxlength={INSTRUCTION_MAX}
+        maxlength={MAX_INSTRUCTION_CHARS}
         rows="2"
         bind:value={newInstruction}
       ></textarea>

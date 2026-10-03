@@ -1,5 +1,6 @@
 // stores/settingsStore.ts
 import { writable } from 'svelte/store';
+import type { Provider } from '@glossly/shared';
 
 export interface CustomModifier {
   id: string;
@@ -14,7 +15,7 @@ export interface ModifierTuning {
 }
 
 export interface Settings {
-  provider: 'ollama' | 'lmstudio' | 'openai-compatible';
+  provider: Provider;
   model: string;
   endpointUrl: string;
   apiKey: string;
