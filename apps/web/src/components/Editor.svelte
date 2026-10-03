@@ -21,6 +21,7 @@
   import { extractContext } from '../note/contextExtraction';
   import { scheduleDiskSync } from '../storage/fileStore';
   import FileStatus from './FileStatus.svelte';
+  import EndpointStatus from './EndpointStatus.svelte';
 
   // oxlint-disable-next-line
   let element;
@@ -717,13 +718,16 @@
 {/if}
 <div bind:this={element} class="min-h-[400px]"></div>
 {#if editor}
-  <div class="word-count px-4 pb-2 text-xs opacity-60">
-    {wordCount} words · {charCount} characters
-    <FileStatus />
-    {#if autosaveFailed}
-      <span class="text-error font-medium" role="alert">
-        · ⚠ Autosave failed — browser storage is full (large images?). Recent changes are not saved.
-      </span>
-    {/if}
+  <div class="word-count px-4 pb-2 text-xs flex flex-wrap justify-between gap-x-4 gap-y-1">
+    <span class="opacity-60">
+      {wordCount} words · {charCount} characters
+      <FileStatus />
+      {#if autosaveFailed}
+        <span class="text-error font-medium" role="alert">
+          · ⚠ Autosave failed — browser storage is full (large images?). Recent changes are not saved.
+        </span>
+      {/if}
+    </span>
+    <EndpointStatus />
   </div>
 {/if}

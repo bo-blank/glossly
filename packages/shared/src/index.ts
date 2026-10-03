@@ -21,6 +21,32 @@ export const MAX_TEMPERATURE = 1.5;
 /** The server keeps this many previousSuggestions, newest first. */
 export const MAX_PREVIOUS_SUGGESTIONS = 12;
 
+// ── Hosts ───────────────────────────────────────────────────────────────────
+
+const LOOPBACK_HOSTNAME = /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/i;
+const PRIVATE_HOSTNAME = /^(10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2})$/;
+
+export type HostKind = 'loopback' | 'private';
+
+/**
+ * Where a model endpoint lives: this computer, the local network, or neither
+ * (null) — the proxy refuses the last. Glossly is local-only by contract.
+ * Parsed with URL first, so spellings like http://2130706433 normalise to
+ * 127.0.0.1 before the check.
+ */
+export function classifyHost(baseUrl: string): HostKind | null {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+  if (LOOPBACK_HOSTNAME.test(url.hostname)) return 'loopback';
+  if (PRIVATE_HOSTNAME.test(url.hostname)) return 'private';
+  return null;
+}
+
 // ── Shapes ──────────────────────────────────────────────────────────────────
 
 export type Provider = 'ollama' | 'lmstudio' | 'openai-compatible';

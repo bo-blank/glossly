@@ -9,14 +9,14 @@
   import SettingsPanel from './SettingsPanel.svelte';
   import TableOfContents from './TableOfContents.svelte';
   import { themeStore, toggleTheme } from '../stores/themeStore';
+  import { settingsOpen } from '../stores/uiStore';
 
-  let settingsOpen = $state(false);
   let settingsPanel;
 
   onMount(() => {
     const handleClick = (e) => {
-      if (settingsOpen && settingsPanel && !settingsPanel.contains(e.target)) {
-        settingsOpen = false;
+      if ($settingsOpen && settingsPanel && !settingsPanel.contains(e.target)) {
+        settingsOpen.set(false);
       }
     };
     document.addEventListener('click', handleClick);
@@ -48,7 +48,7 @@
           aria-label="Toggle settings"
           onclick={(e) => {
             e.stopPropagation();
-            settingsOpen = !settingsOpen;
+            settingsOpen.update((open) => !open);
           }}
         >
           ⚙️
@@ -68,8 +68,8 @@
   <div class="fixed top-0 right-0 z-[100]" bind:this={settingsPanel}>
     <div
       class="fixed top-0 right-0 h-screen w-72 md:w-96 bg-base-200 border-l border-base-300 overflow-y-auto transition-transform duration-200"
-      class:translate-x-0={settingsOpen}
-      class:translate-x-full={!settingsOpen}
+      class:translate-x-0={$settingsOpen}
+      class:translate-x-full={!$settingsOpen}
       style="top: 5rem;"
     >
       <div class="flex items-center justify-between p-4 border-b border-base-300">
@@ -77,7 +77,7 @@
         <button
           class="btn btn-ghost btn-square btn-sm"
           aria-label="Close settings"
-          onclick={() => settingsOpen = false}
+          onclick={() => settingsOpen.set(false)}
         >
           ✕
         </button>

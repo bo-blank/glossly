@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_CONTEXT_CHARS } from '@glossly/shared';
-import { parseContext, parseInstruction, parseTemperature } from './validate';
+import { classifyHost, MAX_CONTEXT_CHARS } from '@glossly/shared';
+import { parseContext, parseInstruction, parseTemperature, validateLocalBaseUrl } from './validate';
 
 const valid = { title: 'T', headingPath: ['A', 'B'], before: 'vorher ', after: ' nachher' };
 
@@ -53,4 +53,37 @@ describe('parseInstruction', () => {
   });
   it('is undefined when absent', () => expect(parseInstruction(undefined)).toBeUndefined());
   it.each(['', '   ', 'x'.repeat(301), 42, null, ['a']])('rejects %s', (raw) => expect(parseInstruction(raw)).toBeNull());
+});
+
+describe('classifyHost', () => {
+  it.each(['http://localhost:8080/v1', 'http://LOCALHOST', 'http://127.0.0.1:8080/v1', 'http://127.1.2.3', 'http://[::1]:8080', 'https://localhost', 'http://2130706433/'])(
+    '%s → loopback',
+    (url) => expect(classifyHost(url)).toBe('loopback')
+  );
+  it.each(['http://10.0.0.5:11434', 'http://192.168.1.20:8080/v1', 'http://172.16.0.1', 'http://172.31.255.255'])('%s → private', (url) =>
+    expect(classifyHost(url)).toBe('private')
+  );
+  it.each([
+    'http://172.32.0.1',
+    'http://172.15.0.1',
+    'http://localhost.example.com',
+    'http://127.0.0.1.nip.io',
+    'http://example.com',
+    'http://0.0.0.0:8080',
+    'ftp://127.0.0.1',
+    'file:///etc/passwd',
+    'http://::1/',
+    'not a url',
+    ''
+  ])('%s → null', (url) => expect(classifyHost(url)).toBeNull());
+});
+
+describe('validateLocalBaseUrl', () => {
+  it('passes local and private URLs through unchanged', () => {
+    expect(validateLocalBaseUrl('http://127.0.0.1:8080/v1')).toBe('http://127.0.0.1:8080/v1');
+    expect(validateLocalBaseUrl('http://192.168.1.20:8080/v1/')).toBe('http://192.168.1.20:8080/v1/');
+  });
+  it.each(['http://example.com/v1', 'http://169.254.169.254/latest', 42, undefined, null, ''])('rejects %s', (url) =>
+    expect(validateLocalBaseUrl(url)).toBeNull()
+  );
 });
