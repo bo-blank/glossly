@@ -19,8 +19,8 @@ export const EN: TemplateText[] = [
     content: `
       <p><strong>Subject:</strong> Moving the review to Thursday — two open points first</p>
       <p>Hi Priya,</p>
-      <p>Could we move Tuesday's review to Thursday at ten? Two points from the last round are still open, and I would rather settle them before we walk the client through the draft.</p>
-      <p>The first is the budget for phase two. The figures we sent in March assumed four workshops; the client now wants six. Either the scope shrinks or the number grows, and I think the client should be the one to choose.</p>
+      <p>Could we move Tuesday's review to Thursday at ten? Two points from the last round are still open. I would rather settle them before we show the client the draft.</p>
+      <p>The first is the budget for phase two. The figures we sent in March assumed four workshops; the client now wants six. Either the scope shrinks or the number grows. I think the client should choose.</p>
       <p>The second is the timeline. If the extra workshops stay, the launch moves by about three weeks. I have sketched both versions and attached them, so you can see what each one costs.</p>
       <p>If Thursday works for you, I will send the invitation today and update the agenda. If it doesn't, just suggest a time that does.</p>
       <p>Best regards,<br>Alex</p>
@@ -38,9 +38,9 @@ export const EN: TemplateText[] = [
     blurb: 'Why you, why them, why now.',
     content: `
       <p>Dear Ms Berger,</p>
-      <p>Your posting for a content lead says that your readers are experts themselves. That is exactly who I have been writing for over the past six years, as the person responsible for the newsletter and blog of a mid-sized software company.</p>
-      <p>The most relevant thing I have done there is rebuild our newsletter from a monthly product digest into a weekly letter with a point of view. Within a year the open rate rose from 21 to 38 percent, and the sales team started forwarding issues to prospects instead of brochures. What I would bring with me is less the format than the habit behind it: deciding first what a reader should be able to do after reading, and cutting everything else.</p>
-      <p>What draws me to your company in particular is your quarterly report. It explains hard trade-offs in plain language without talking down to anyone, and that is rarer than it should be. I would like to help more of your writing sound like that.</p>
+      <p>Your posting for a content lead says that your readers are experts themselves. That is exactly who I have written for over the past six years. I run the newsletter and blog of a mid-sized software company.</p>
+      <p>My most relevant project there was the newsletter. I turned a monthly product digest into a weekly letter with opinions. Within a year the open rate rose from 21 to 38 percent. Sales started forwarding issues to prospects instead of brochures. What I would bring is less the format than the habit behind it. First decide what a reader should be able to do afterwards. Then cut everything else.</p>
+      <p>What draws me to your company in particular is your quarterly report. It explains hard trade-offs in plain language without talking down to anyone. That is rarer than it should be. I would like to help more of your writing sound like that.</p>
       <p>I would be glad to talk about where I could be most useful in the first six months.</p>
       <p>Kind regards,<br>Alex Morgan</p>
     `,
@@ -59,9 +59,9 @@ export const EN: TemplateText[] = [
       <h1>Project sync — 14 October</h1>
       <p><strong>Present:</strong> Priya, Jonas, Mei, Alex · <strong>Notes:</strong> Alex</p>
       <h2>1. Website relaunch</h2>
-      <p>The new page templates are finished and tested in all three browsers. Content migration is behind: for about a third of the old pages nobody has decided yet whether they move, merge or go.</p>
+      <p>The new page templates are finished and tested in all three browsers. Content migration is behind. About a third of the old pages still need a decision: move, merge or delete.</p>
       <h2>2. Budget for phase two</h2>
-      <p>The client wants six workshops instead of four. We will offer two versions — the original scope at the original price, and the larger scope with a later launch — and let the client choose.</p>
+      <p>The client wants six workshops instead of four. We will offer two versions and let the client choose. One keeps the original scope and price. The other adds the workshops and launches later.</p>
       <h2>Decisions</h2>
       <ul>
         <li><p>The launch stays on 2 December unless the client picks the larger scope.</p></li>
@@ -89,7 +89,7 @@ export const EN: TemplateText[] = [
     content: `
       <p>I spent three years doing this the hard way. Here is what I would tell myself on day one.</p>
       <p>The short version: the thing everyone treats as the hard part is not the hard part.</p>
-      <p>Some context. When I started, I assumed the bottleneck was effort. It was not. It was that nobody had written down what "done" looked like, so every round of work restarted the argument.</p>
+      <p>Some context. When I started, I assumed the bottleneck was effort. It was not. Nobody had written down what "done" looked like. So every round of work restarted the argument.</p>
       <p>Three things changed once we fixed that:</p>
       <ul>
         <li><p>Decisions took hours instead of weeks, because the criteria were on the page.</p></li>
@@ -146,14 +146,14 @@ export const EN: TemplateText[] = [
     blurb: 'Problem, idea, practice, objection.',
     content: `
       <h1>We relaunched our website with half as many pages</h1>
-      <p><em>For teams planning a relaunch: how to decide which pages go, and why the smaller site works better.</em></p>
+      <p><em>For teams planning a relaunch: which pages to cut, and why less works better.</em></p>
       <h2>The problem</h2>
-      <p>Our old website had 240 pages. For half of them nobody remembered who had written them, and when a customer asked a simple question, even our own staff searched the site and gave up.</p>
-      <p>This piece is about the one rule that cut the site in half, and why nobody missed what we removed.</p>
+      <p>Our old website had 240 pages. For half of them, nobody remembered who had written them. When customers asked a simple question, even our staff searched in vain.</p>
+      <p>This piece is about the one rule that cut the site in half. Nobody missed what we removed.</p>
       <h2>The background</h2>
-      <p>Every one of those pages had once been somebody's good idea: a campaign, a product, a question a customer had asked. In eight years the site only ever grew, because deleting felt riskier than keeping.</p>
+      <p>Every one of those pages had once been somebody's good idea. A campaign, a product, a customer's question. In eight years the site only ever grew, because deleting felt riskier than keeping.</p>
       <h2>The main idea</h2>
-      <p>A page without an owner does not move. That was the whole rule: before anything was migrated, every page needed a named person who would keep it current. Whatever nobody claimed by the deadline was archived.</p>
+      <p>A page without an owner does not move. That was the whole rule. Before anything moved, every page needed a named person to keep it current. Whatever nobody claimed by the deadline was archived.</p>
       <blockquote>
         <p>"If nobody will update it, nobody should read it." — our head of customer support, in the meeting where we decided</p>
       </blockquote>
@@ -164,9 +164,9 @@ export const EN: TemplateText[] = [
         <li><p>We archived the rest and watched the search logs for a month. Three pages came back; 117 did not.</p></li>
       </ol>
       <h2>The objection</h2>
-      <p>The strongest argument against this is search traffic: old pages bring visitors, even when they are out of date. We checked. Two thirds of the archived pages had fewer than ten visits a year, and the rest now redirect to their current equivalents.</p>
+      <p>The strongest argument against this is search traffic. Old pages bring visitors, even when they are out of date. We checked. Two thirds of the archived pages had fewer than ten visits a year. The rest now redirect to current pages.</p>
       <h2>What follows from this</h2>
-      <p>Anyone planning a relaunch should start with the list of owners, not with the design. The smallest version: take your twenty most visited pages and ask who would notice if one of them were wrong.</p>
+      <p>Anyone planning a relaunch should start with the list of owners, not with the design. The smallest version: take your twenty most visited pages. Ask who would notice if one of them were wrong.</p>
     `,
     guide: [
       { section: 'Title and standfirst', hint: 'The title promises one thing. The standfirst says who it is for and what they will be able to do.' },
@@ -185,15 +185,15 @@ export const EN: TemplateText[] = [
     content: `
       <h1>Issue 12 — The meeting that wrote itself</h1>
       <p>Hello again,</p>
-      <p>This week I sat in a meeting whose notes were finished before it started. That sounds like bureaucracy, but it was the opposite, and it is what this issue is about.</p>
+      <p>This week I sat in a meeting whose notes were finished before it started. That sounds like bureaucracy. It was the opposite, and it is what this issue is about.</p>
       <h2>The one big thing</h2>
-      <p>Our project sync used to run for an hour and produce notes nobody read. Three weeks ago we tried something small: before each sync, the decisions we expect are already in the notes, and the meeting only exists to change them. Last Tuesday it took twenty minutes. Two of the five expected decisions changed, which is exactly the point. We argued with a draft instead of with a blank page.</p>
-      <p>I don't think this works for every meeting. It does work for the ones that keep coming back with the same agenda, and for me that is most of them.</p>
+      <p>Our project sync used to run for an hour and produce notes nobody read. Three weeks ago we tried something small. Before each sync, the decisions we expect are already in the notes. The meeting only exists to change them. Last Tuesday it took twenty minutes. Two of the five expected decisions changed, which is exactly the point. We argued with a draft instead of with a blank page.</p>
+      <p>I don't think this works for every meeting. It does work for the ones that keep coming back with the same agenda. For me, that is most of them.</p>
       <h2>Worth your time</h2>
       <ul>
         <li><p><strong>An essay on bad first drafts</strong> — the best argument I know for separating writing from judging.</p></li>
-        <li><p><strong>A guide to archiving old web pages</strong> — dry, but it saved us a month.</p></li>
-        <li><p><strong>A short story set on a platform where no train comes</strong> — nothing to do with work, which is why it is here.</p></li>
+        <li><p><strong>A guide to archiving old pages</strong> — dry, but it saved us a month.</p></li>
+        <li><p><strong>A short story about a cancelled train.</strong> Nothing to do with work, which is why it is here.</p></li>
       </ul>
       <h2>One small thing</h2>
       <p>Write the subject line of an e-mail last. Naming something is much easier once you know what it says.</p>
@@ -216,10 +216,10 @@ export const EN: TemplateText[] = [
     content: `
       <h1>The first draft is allowed to be bad</h1>
       <h2>The question</h2>
-      <p>Every writer knows the moment: the page is empty, the sentence in your head is perfect, and the one on the screen is not. So you delete it and wait for a better one. An hour later the page is still empty, and the perfect sentence has gone wherever perfect sentences go.</p>
+      <p>Every writer knows the moment. The page is empty. The sentence in your head is perfect; the one on the screen is not. So you delete it and wait for a better one. An hour later the page is still empty. The perfect sentence has gone wherever perfect sentences go.</p>
       <h2>The argument</h2>
-      <p>The trouble is not a lack of talent. It is a confusion of two jobs. Writing a draft and judging a draft use different parts of the mind, and doing both at once is like driving with one foot on each pedal. The car shakes, and nobody gets anywhere.</p>
-      <p>A bad first draft solves this by separating the jobs in time. First you find out what you think, in whatever words arrive. Then, with something on the page, you become the editor — and the editor has the easier job, because changing a sentence is always easier than inventing one.</p>
+      <p>The trouble is not a lack of talent. It is a confusion of two jobs. Writing a draft and judging a draft use different parts of the mind. Doing both at once is like driving with one foot on each pedal. The car shakes, and nobody gets anywhere.</p>
+      <p>A bad first draft solves this by separating the jobs in time. First you find out what you think, in whatever words arrive. Then, with something on the page, you become the editor. And the editor has it easier: changing is always easier than inventing.</p>
       <h2>The objection</h2>
       <p>The obvious objection is that bad drafts waste time. Sometimes they do; whole pages end up deleted. But a deleted page has still done its work if it showed you what the piece was not about. An empty afternoon wastes more, and it teaches nothing.</p>
       <h2>The ending</h2>
@@ -238,7 +238,7 @@ export const EN: TemplateText[] = [
     blurb: 'A place, two people, something unsaid.',
     content: `
       <h1>Platform Four</h1>
-      <p>The last train had been cancelled twenty minutes ago, but neither of them moved. Lena sat on the bench with her coat buttoned to the chin; Tom stood at the edge of the platform, reading the departure board as if it might still change its mind.</p>
+      <p>The last train had been cancelled twenty minutes ago, but neither of them moved. Lena sat on the bench with her coat buttoned to the chin. Tom stood at the edge of the platform. He read the departure board as if it might still change its mind.</p>
       <p>"We could take a taxi," he said.</p>
       <p>"To where?"</p>
       <p>He didn't answer. Somewhere behind them a vending machine hummed and went quiet. A pigeon walked the length of the yellow line, inspected a crumb, and decided against it.</p>
@@ -246,7 +246,7 @@ export const EN: TemplateText[] = [
       <p>"I was going to. Tonight. At dinner."</p>
       <p>"And now there is no dinner."</p>
       <p>"Now there is no train." He almost smiled. "It feels like a sign."</p>
-      <p>The board flickered. For a moment every line went blank, and they both watched it, as though whatever came back would decide something for them. Then the old text returned — cancelled, cancelled, cancelled — in the same tired orange.</p>
+      <p>The board flickered. For a moment every line went blank. They both watched it, as though whatever came back would decide for them. Then the old text returned in the same tired orange: cancelled, cancelled, cancelled.</p>
       <p>Lena stood up and brushed off her coat. "Call her," she said. "From here. Before you find another sign."</p>
     `,
     guide: [

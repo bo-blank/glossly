@@ -1,6 +1,7 @@
 import { getSchema } from '@tiptap/core';
 import { describe, expect, it } from 'vitest';
 import { schemaExtensions } from '../schemaExtensions';
+import { scoreSentence, splitSentences } from '../../utils/readability';
 import { detectAddress } from '../../note/contextExtraction';
 import { DE } from './de';
 import { EN } from './en';
@@ -15,7 +16,9 @@ const docOf = (html: string) => schema.node('doc', null, [schema.node('paragraph
 
 // Tiptap silently drops nodes no loaded extension claims, so a template written
 // with an unsupported tag would lose content with no error anywhere.
-const SUPPORTED_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'strong', 'em', 's', 'u', 'br', 'a', 'img', 'mark']);
+// Plain structure only: no highlights, colours, underline or strikethrough —
+// a template is a starting draft, not a formatted document.
+const ALLOWED_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'strong', 'em', 'br']);
 const tagsIn = (html: string) => [...html.matchAll(/<\/?([a-z][a-z0-9]*)/gi)].map((m) => m[1].toLowerCase());
 
 describe('templates', () => {
@@ -30,11 +33,21 @@ describe('templates', () => {
     expect([...grouped, BLANK_TEMPLATE_ID].sort()).toEqual(EN.map((t) => t.id).sort());
   });
 
-  it.each(ALL.map((t) => [t.name, t]))('%s is labelled, uses only tags the editor parses, and has no [slots]', (_name, t) => {
+  it.each(ALL.map((t) => [t.name, t]))('%s is labelled, plainly formatted, and has no [slots]', (_name, t) => {
     expect(t.name.length).toBeGreaterThan(0);
     expect(t.blurb.length).toBeGreaterThan(0);
-    for (const tag of tagsIn(t.content)) expect(SUPPORTED_TAGS.has(tag), `${t.id} uses <${tag}>`).toBe(true);
+    for (const tag of tagsIn(t.content)) expect(ALLOWED_TAGS.has(tag), `${t.id} uses <${tag}>`).toBe(true);
+    expect(t.content).not.toMatch(/\sstyle=|data-color|data-highlight/);
     expect(t.content).not.toMatch(/\[[^\]]*\]/);
+  });
+
+  // The readability highlighter marks long sentences yellow and very long ones
+  // red. A template should arrive calm and show what the highlighter asks for.
+  it.each(ALL.map((t) => [t.name, t]))('%s has no red and at most two yellow sentences', (_name, t) => {
+    const blocks = [...t.content.matchAll(/<(p|li)[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => plain(m[2])).filter(Boolean);
+    const tiers = blocks.flatMap((b) => splitSentences(b).map((s) => scoreSentence(s.text)?.tier));
+    expect(tiers.filter((x) => x === 'hard')).toHaveLength(0);
+    expect(tiers.filter((x) => x === 'standard').length).toBeLessThanOrEqual(2);
   });
 
   it('ships a blank page and real prose for the rest', () => {
