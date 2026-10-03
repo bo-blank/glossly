@@ -8,6 +8,8 @@ import {
   MAX_INSTRUCTION_CHARS,
   MAX_PHRASE_CHARS,
   MAX_PREVIOUS_SUGGESTIONS,
+  MAX_PROTECTED_TERM_CHARS,
+  MAX_PROTECTED_TERMS,
   MAX_SENTENCE_CHARS,
   MAX_TEMPERATURE,
   MIN_SELECTION_CHARS,
@@ -16,7 +18,7 @@ import {
   type SuggestRequestBody,
   type SuggestStreamEvents
 } from '@glossly/shared';
-import { parseContext, parseInstruction, parseTemperature, resolveTimeout, validateLocalBaseUrl } from '../util/validate';
+import { parseContext, parseInstruction, parseProtectedTerms, parseTemperature, resolveTimeout, validateLocalBaseUrl } from '../util/validate';
 
 function sendEvent<E extends keyof SuggestStreamEvents>(res: Response, event: E, data: SuggestStreamEvents[E]) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
@@ -51,6 +53,7 @@ suggestRouter.post('/api/suggest', async (req, res) => {
     temperature: rawTemperature,
     mode,
     previousSuggestions,
+    protectedTerms: rawProtectedTerms,
     timeout,
     stream
   }: Partial<Record<keyof SuggestRequestBody, unknown>> = req.body ?? {};
@@ -80,6 +83,15 @@ suggestRouter.post('/api/suggest', async (req, res) => {
   const temperature = parseTemperature(rawTemperature);
   if (temperature === null) {
     res.status(400).json({ error: 'bad_response', message: `temperature must be a number from 0 to ${MAX_TEMPERATURE}.` });
+    return;
+  }
+
+  const protectedTerms = parseProtectedTerms(rawProtectedTerms);
+  if (protectedTerms === null) {
+    res.status(400).json({
+      error: 'bad_response',
+      message: `protectedTerms must be at most ${MAX_PROTECTED_TERMS} non-blank words of at most ${MAX_PROTECTED_TERM_CHARS} characters.`
+    });
     return;
   }
 
@@ -139,6 +151,7 @@ suggestRouter.post('/api/suggest', async (req, res) => {
     temperature,
     mode,
     previousSuggestions: previous,
+    protectedTerms,
     model,
     baseUrl,
     apiKey,

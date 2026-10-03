@@ -6,6 +6,8 @@ import { snapToWordBoundaries } from './wordBoundary';
 import { expandToSentenceSelection } from './sentenceExpansion';
 import { cacheKey, get as cacheGet, set as cacheSet } from './suggestionCache';
 import { record, forPhrase } from './suggestionHistory';
+import { termsInSelection } from './protectedTerms';
+import { activeProtectedTerms } from '../storage/documentStore';
 import { MAX_PHRASE_CHARS, MAX_SENTENCE_CHARS, MIN_SELECTION_CHARS, type SuggestionContext, type SuggestionMode } from '@glossly/shared';
 
 const DEBOUNCE_MS = 200;
@@ -143,7 +145,11 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
   const instructionOverride = tuning?.instruction;
   const temperature = tuning?.temperature;
 
-  const key = `${info.from}:${info.to}:${info.selectedText}:${modifier ?? ''}:${modifierInstruction ?? ''}:${instructionOverride ?? ''}:${temperature ?? ''}:${mode}`;
+  // Only the ones in the selection: the suggestion replaces nothing else.
+  const terms = termsInSelection(activeProtectedTerms(), info.selectedText);
+  const protectedTerms = terms.length ? terms : undefined;
+
+  const key = JSON.stringify([info.from, info.to, info.selectedText, modifier, modifierInstruction, instructionOverride, temperature, protectedTerms, mode]);
   // "New suggestions" (more) is exempt from dedupe — repeating it for the same
   // selection is exactly its purpose, and each round sends the accumulated
   // previous suggestions so the model doesn't circle back to earlier wording.
@@ -166,6 +172,7 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
           modifierInstruction,
           instructionOverride,
           temperature,
+          protectedTerms,
           mode,
           model: settings.model,
           endpointUrl: settings.endpointUrl
@@ -216,6 +223,7 @@ async function runRequest(info: SelectionInfo, modifier: string | undefined, mod
       modifierInstruction,
       instructionOverride,
       temperature,
+      protectedTerms,
       mode,
       previousSuggestions,
       signal: controller.signal,

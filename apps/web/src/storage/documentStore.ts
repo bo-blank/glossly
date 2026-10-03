@@ -320,6 +320,22 @@ async function rename(id: string, title: string): Promise<void> {
   documentStore.update((s) => ({ ...s, documents: replaceListed(s.documents, meta) }));
 }
 
+/** The active document's protected words; none without the IndexedDB backend's document list. */
+export function activeProtectedTerms(state: DocumentState = get(documentStore)): string[] {
+  return state.documents.find((d) => d.id === state.activeId)?.protectedTerms ?? [];
+}
+
+export function setProtectedTerms(id: string, terms: string[]): Promise<void> {
+  return serial(async () => {
+    const current = get(documentStore).documents.find((d) => d.id === id);
+    if (!current) return;
+    const meta: DocMeta = { ...current, protectedTerms: terms };
+    await putDocumentMeta(meta);
+    // Not an edit of the text: updatedAt stays, like a rename.
+    documentStore.update((s) => ({ ...s, documents: replaceListed(s.documents, meta) }));
+  });
+}
+
 /** Deleting the active document lands on the most recent remaining one, or a fresh blank one. */
 export function removeDocument(id: string): Promise<void> {
   return serial(() => remove(id));

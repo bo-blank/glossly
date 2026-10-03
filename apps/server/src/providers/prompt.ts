@@ -1,3 +1,4 @@
+import { countWord } from '@glossly/shared';
 import type { Modifier, SuggestionContext, SuggestionMode } from './types';
 
 const MODIFIER_INSTRUCTIONS: Record<string, string> = {
@@ -79,6 +80,19 @@ function renderContext(context: string | SuggestionContext, selectedText: string
   ].filter((part): part is string => part !== null);
 }
 
+/**
+ * "Exactly as written" alone did not stop e2b from collapsing a deliberate
+ * repetition ("wartete und wartete" lost it in 86/90 suggestions), so a
+ * repeated word gets its count stated.
+ */
+function protectedLine(terms: string[], selectedText: string): string {
+  const listed = terms.map((t) => {
+    const n = countWord(t, selectedText);
+    return n > 1 ? `"${t}" (${n} times — the repetition is deliberate)` : `"${t}"`;
+  });
+  return `Keep these words exactly as written, in every alternative: ${listed.join(', ')}.`;
+}
+
 export function buildMessages(
   selectedText: string,
   context: string | SuggestionContext,
@@ -86,7 +100,8 @@ export function buildMessages(
   previousSuggestions?: string[],
   modifierInstruction?: string,
   mode: SuggestionMode = 'phrase',
-  instructionOverride?: string
+  instructionOverride?: string,
+  protectedTerms?: string[]
 ) {
   // Built-ins are never overridable by a custom instruction under the same id —
   // MODIFIER_INSTRUCTIONS wins whenever the modifier key matches a known built-in,
@@ -109,6 +124,9 @@ export function buildMessages(
     ...renderContext(context, selectedText),
     isSentence ? `Selected sentence(s): "${selectedText}"` : `Selected phrase: "${selectedText}"`,
     language ? `Language: the text is ${language}. Every alternative must be in ${language}.` : null,
+    // Names, invented terms, deliberate repetitions — the writer marked them. Only
+    // those inside the selection arrive here; the client also flags a miss.
+    protectedTerms?.length ? protectedLine(protectedTerms, selectedText) : null,
     isStyle
       ? `Style instruction: ${instruction}\nThis instruction takes priority over matching the tone and register of the context. Still write in the language of the ${target}, keep its form of address, and make each alternative fit in place of the selection.`
       : instruction

@@ -302,12 +302,12 @@ export const openAICompatibleProvider: LLMProvider = {
   label: 'OpenAI-compatible (local)',
 
   async getSuggestions(input: SuggestionRequest, timing: StreamTiming = STREAM_TIMING): Promise<string[]> {
-    const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, previousSuggestions } = input;
+    const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, previousSuggestions, protectedTerms } = input;
     const { content, finishReason, sawReasoning } = await streamCompletion({
       ...input,
       timing,
       body: {
-        messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode, instructionOverride),
+        messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode, instructionOverride, protectedTerms),
         response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
         temperature: temperature ?? DEFAULT_TEMPERATURE,
         max_tokens: MAX_TOKENS_SUGGESTIONS,
@@ -323,13 +323,13 @@ export const openAICompatibleProvider: LLMProvider = {
     emit: (event: SuggestionStreamEvent) => void,
     timing: StreamTiming = STREAM_TIMING
   ): Promise<string[]> {
-    const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, previousSuggestions } = input;
+    const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, previousSuggestions, protectedTerms } = input;
     let emittedCount = 0;
     const { content, finishReason, sawReasoning } = await streamCompletion({
       ...input,
       timing,
       body: {
-        messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode, instructionOverride),
+        messages: buildMessages(selectedText, context, modifier, previousSuggestions, modifierInstruction, mode, instructionOverride, protectedTerms),
         response_format: { type: 'json_schema', json_schema: SUGGESTIONS_JSON_SCHEMA },
         temperature: temperature ?? DEFAULT_TEMPERATURE,
         max_tokens: MAX_TOKENS_SUGGESTIONS,

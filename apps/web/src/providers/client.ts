@@ -14,7 +14,10 @@ import type { Settings } from '../stores/settingsStore';
 export type { AiLikenessResult } from '@glossly/shared';
 
 export interface SuggestParams
-  extends Pick<SuggestRequestBody, 'selectedText' | 'modifier' | 'modifierInstruction' | 'instructionOverride' | 'temperature' | 'mode' | 'previousSuggestions'> {
+  extends Pick<
+    SuggestRequestBody,
+    'selectedText' | 'modifier' | 'modifierInstruction' | 'instructionOverride' | 'temperature' | 'mode' | 'previousSuggestions' | 'protectedTerms'
+  > {
   settings: Settings;
   context: SuggestionContext;
   signal: AbortSignal;

@@ -7,6 +7,8 @@
   import { diffWords, type Segment } from '../note/wordDiff';
   import { forPhrase } from '../note/suggestionHistory';
   import { loadStatusText } from '../note/loadStatusText';
+  import { droppedTerms, isProtectable, termsInSelection, withTerm, withoutTerm } from '../note/protectedTerms';
+  import { activeProtectedTerms, documentStore, setProtectedTerms } from '../storage/documentStore';
 
   // Tooltips say in plain words what each chip will do, for writers who don't
   // already think in terms of "register" or "concision". Custom chips show
@@ -33,12 +35,35 @@
     activeIndex !== null && diffs[activeIndex] ? diffs[activeIndex].original : [{ text: $noteStore.original, kind: 'same' }]
   );
 
+  // Protected words of this document that the current selection contains. A
+  // suggestion that loses one is flagged, not hidden: the writer decides.
+  let docTerms = $derived(activeProtectedTerms($documentStore));
+  let selectionTerms = $derived(termsInSelection(docTerms, $noteStore.original));
+  let lost = $derived($noteStore.suggestions.map((s) => droppedTerms(selectionTerms, $noteStore.original, s)));
+  // Only with the IndexedDB backend: it keeps a document list to store the words on.
+  let canProtect = $derived(
+    $documentStore.documents.some((d) => d.id === $documentStore.activeId) && isProtectable($noteStore.original)
+  );
+  let isProtected = $derived(docTerms.includes($noteStore.original.trim()));
+
+  function toggleProtected() {
+    const id = $documentStore.activeId;
+    const term = $noteStore.original;
+    void setProtectedTerms(id, isProtected ? withoutTerm(docTerms, term) : withTerm(docTerms, term));
+  }
+
+  const lostLabel = (terms: string[]) => `changes ${terms.map((t) => `“${t}”`).join(', ')}`;
+
   // History isn't reactive itself; every record() lands just before a noteStore
   // update, which re-runs this.
   let earlier = $derived(
     forPhrase($noteStore.original)
       .filter((e) => !$noteStore.suggestions.includes(e.text))
-      .map((e) => ({ ...e, segments: diffWords($noteStore.original, e.text).suggestion }))
+      .map((e) => ({
+        ...e,
+        segments: diffWords($noteStore.original, e.text).suggestion,
+        lost: droppedTerms(selectionTerms, $noteStore.original, e.text)
+      }))
   );
 
   // Seconds since the request started, ticking only while the server reports a wait.
@@ -166,9 +191,12 @@
                 applySuggestion(suggestion);
               }
             }}
-            aria-label={`Apply suggestion ${index + 1}: ${suggestion}`}
+            aria-label={`Apply suggestion ${index + 1}: ${suggestion}${lost[index]?.length ? ` — ${lostLabel(lost[index])}` : ''}`}
           >
-            <div class="text-sm">{#each diffs[index]?.suggestion ?? [] as seg}{#if seg.kind === 'added'}<mark class="diff-added">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</div>
+            <div class="text-sm" class:opacity-60={lost[index]?.length}>{#each diffs[index]?.suggestion ?? [] as seg}{#if seg.kind === 'added'}<mark class="diff-added">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</div>
+            {#if lost[index]?.length}
+              <span class="badge badge-warning badge-xs mt-1.5">{lostLabel(lost[index])}</span>
+            {/if}
           </div>
         {/each}
         {#if $noteStore.loading}
@@ -200,6 +228,14 @@
                 <button class="btn btn-xs btn-ghost btn-outline" onclick={chip.run}>{chip.label}</button>
               </span>
             {/each}
+            {#if canProtect}
+              <span
+                class="tooltip tooltip-bottom"
+                data-tip={isProtected ? 'Suggestions may change this word again' : 'Suggestions keep this word exactly as written — in this document'}
+              >
+                <button class="btn btn-xs btn-ghost btn-outline" onclick={toggleProtected}>{isProtected ? 'Unprotect' : 'Protect'}</button>
+              </span>
+            {/if}
           </div>
           <div class="text-xs opacity-60 mt-2">Alt+1–3 apply · Alt+N new · Esc dismiss</div>
         {/if}
@@ -214,10 +250,13 @@
                   <button
                     class="block w-full text-left rounded-md px-2 py-1.5 mb-1 hover:bg-base-200 focus:bg-base-200 transition-colors duration-150"
                     onclick={() => applySuggestion(entry.text)}
-                    aria-label={`Apply earlier suggestion (${entry.label}): ${entry.text}`}
+                    aria-label={`Apply earlier suggestion (${entry.label}): ${entry.text}${entry.lost.length ? ` — ${lostLabel(entry.lost)}` : ''}`}
                   >
-                    <span class="text-sm">{#each entry.segments as seg}{#if seg.kind === 'added'}<mark class="diff-added">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</span>
-                    <span class="block text-[0.65rem] opacity-50 mt-0.5">{entry.label}</span>
+                    <span class="text-sm" class:opacity-60={entry.lost.length}>{#each entry.segments as seg}{#if seg.kind === 'added'}<mark class="diff-added">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</span>
+                    <span class="block text-[0.65rem] mt-0.5">
+                      <span class="opacity-50">{entry.label}</span>
+                      {#if entry.lost.length}<span class="badge badge-warning badge-xs ml-1">{lostLabel(entry.lost)}</span>{/if}
+                    </span>
                   </button>
                 {/each}
               </div>

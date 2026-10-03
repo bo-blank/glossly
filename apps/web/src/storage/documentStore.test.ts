@@ -174,6 +174,27 @@ describe('documents', () => {
   });
 });
 
+describe('protected words', () => {
+  it('belong to one document and survive autosave, a rename and a reload', async () => {
+    await ds.initDocuments('<p>a</p>');
+    const before = state().documents[0].updatedAt;
+    await ds.setProtectedTerms('default', ['Anna', 'Quellwerk']);
+    expect(state().documents[0].updatedAt).toBe(before); // not an edit
+    await ds.saveDocument('default', '<p>Anna ging</p>');
+    await ds.renameDocument('default', 'Roman');
+    expect(ds.activeProtectedTerms()).toEqual(['Anna', 'Quellwerk']);
+
+    await ds.createDocument('<p>zweites</p>');
+    expect(ds.activeProtectedTerms()).toEqual([]);
+
+    vi.resetModules();
+    const fresh: Store = await import('./documentStore');
+    await fresh.initDocuments('<p>unused</p>');
+    await fresh.switchDocument('default');
+    expect(fresh.activeProtectedTerms()).toEqual(['Anna', 'Quellwerk']);
+  });
+});
+
 describe('fallback', () => {
   it('stays single-document on localStorage when IndexedDB is unavailable', async () => {
     // @ts-expect-error simulate a browser without IndexedDB

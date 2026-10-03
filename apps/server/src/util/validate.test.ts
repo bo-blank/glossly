@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { classifyHost, MAX_CONTEXT_CHARS } from '@glossly/shared';
-import { parseContext, parseInstruction, parseTemperature, validateLocalBaseUrl } from './validate';
+import { parseContext, parseInstruction, parseProtectedTerms, parseTemperature, validateLocalBaseUrl } from './validate';
 
 const valid = { title: 'T', headingPath: ['A', 'B'], before: 'vorher ', after: ' nachher' };
 
@@ -86,4 +86,21 @@ describe('validateLocalBaseUrl', () => {
   it.each(['http://example.com/v1', 'http://169.254.169.254/latest', 42, undefined, null, ''])('rejects %s', (url) =>
     expect(validateLocalBaseUrl(url)).toBeNull()
   );
+});
+
+describe('parseProtectedTerms', () => {
+  it('accepts up to 30 words of up to 40 characters', () => {
+    expect(parseProtectedTerms(['Anna', 'Quellwerk'])).toEqual(['Anna', 'Quellwerk']);
+    expect(parseProtectedTerms(Array.from({ length: 30 }, (_, i) => `w${i}`))).toHaveLength(30);
+    expect(parseProtectedTerms(['x'.repeat(40)])).toHaveLength(1);
+  });
+  it('is undefined when absent', () => expect(parseProtectedTerms(undefined)).toBeUndefined());
+  it.each([
+    ['too many', Array.from({ length: 31 }, (_, i) => `w${i}`)],
+    ['too long', ['x'.repeat(41)]],
+    ['blank', ['Anna', '  ']],
+    ['not strings', ['Anna', 7]],
+    ['not an array', 'Anna'],
+    ['null', null]
+  ])('rejects %s', (_name, raw) => expect(parseProtectedTerms(raw)).toBeNull());
 });

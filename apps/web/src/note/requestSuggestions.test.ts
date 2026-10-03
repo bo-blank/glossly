@@ -129,3 +129,25 @@ describe('requestSuggestions load status', () => {
     expect(get(noteStore).loadStatus).toBeUndefined();
   });
 });
+
+describe('requestSuggestions protected words', () => {
+  it('sends only the protected words in the selection, and refetches when they change', async () => {
+    const docs = await import('../storage/documentStore');
+    docs.documentStore.set({
+      backend: 'indexeddb',
+      activeId: 'd1',
+      documents: [{ id: 'd1', title: 'Roman', titleManual: false, createdAt: 1, updatedAt: 1, protectedTerms: ['Anna', 'Mara'] }]
+    });
+    await select('Anna ging los', 3);
+    expect(fetchMock.mock.calls.at(-1)![0].protectedTerms).toEqual(['Anna']);
+
+    docs.documentStore.update((s) => ({ ...s, documents: [{ ...s.documents[0], protectedTerms: [] }] }));
+    requestWithModifier('tighter');
+    await vi.runAllTimersAsync();
+    expect(fetchMock.mock.calls.at(-1)![0].protectedTerms).toBeUndefined();
+
+    await select('ganz anders', 40);
+    expect(fetchMock.mock.calls.at(-1)![0].protectedTerms).toBeUndefined();
+    docs.documentStore.set({ backend: 'localStorage', activeId: 'default', documents: [] });
+  });
+});

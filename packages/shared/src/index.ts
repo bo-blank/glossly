@@ -20,6 +20,9 @@ export const MAX_INSTRUCTION_CHARS = 300;
 export const MAX_TEMPERATURE = 1.5;
 /** The server keeps this many previousSuggestions, newest first. */
 export const MAX_PREVIOUS_SUGGESTIONS = 12;
+/** Protected words per document, and the length of one. */
+export const MAX_PROTECTED_TERMS = 30;
+export const MAX_PROTECTED_TERM_CHARS = 40;
 
 // ── Hosts ───────────────────────────────────────────────────────────────────
 
@@ -45,6 +48,18 @@ export function classifyHost(baseUrl: string): HostKind | null {
   if (LOOPBACK_HOSTNAME.test(url.hostname)) return 'loopback';
   if (PRIVATE_HOSTNAME.test(url.hostname)) return 'private';
   return null;
+}
+
+// ── Protected words ─────────────────────────────────────────────────────────
+
+/**
+ * How often a protected word occurs: whole words, case-sensitive ("Anna" is
+ * not "Annas" or "anna"), with letters and digits of any script as word
+ * characters. The prompt and the client's miss check must agree on this.
+ */
+export function countWord(term: string, text: string): number {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.match(new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'gu'))?.length ?? 0;
 }
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
@@ -92,6 +107,8 @@ export interface SuggestRequestBody extends ModelTarget {
   temperature?: number;
   mode?: SuggestionMode;
   previousSuggestions?: string[];
+  /** Protected words that occur in the selection; every alternative must keep them. */
+  protectedTerms?: string[];
   stream?: boolean;
 }
 

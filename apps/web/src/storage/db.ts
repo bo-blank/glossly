@@ -11,6 +11,8 @@ export interface DocMeta {
   createdAt: number;
   updatedAt: number;
   file?: FileLink;
+  /** Words suggestions must keep (Phase 4 WP4). Lives here, not in the Markdown file. */
+  protectedTerms?: string[];
 }
 
 /** A document opened from or saved to disk. The handle survives structured clone, not JSON. */

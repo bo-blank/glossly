@@ -186,3 +186,29 @@ describe('instruction override', () => {
     expect(styleDefaults().tighter).toMatch(/more concise/);
   });
 });
+
+describe('protected terms', () => {
+  const context = { title: 'Roman', headingPath: [], before: 'Am Morgen ', after: ' zum Quellwerk.' };
+
+  it('asks to keep each protected word, in every mode and with a style chip', () => {
+    for (const [modifier, mode] of [[undefined, 'phrase'], ['tighter', 'phrase'], [undefined, 'sentence']] as const) {
+      const [, user] = buildMessages('ging Anna allein', context, modifier, undefined, undefined, mode, undefined, ['Anna', 'Quellwerk']);
+      expect(user.content).toContain('Keep these words exactly as written, in every alternative: "Anna", "Quellwerk".');
+    }
+  });
+
+  it('adds nothing without protected words', () => {
+    for (const terms of [undefined, []]) {
+      const [, user] = buildMessages('ging Anna allein', context, undefined, undefined, undefined, 'phrase', undefined, terms);
+      expect(user.content).not.toContain('Keep these words');
+    }
+  });
+});
+
+describe('protected repetition', () => {
+  it('states the count of a repeated protected word', () => {
+    const context = { title: '', headingPath: [], before: 'Der Zug kam nicht. ', after: '.' };
+    const [, user] = buildMessages('Sie wartete und wartete', context, undefined, undefined, undefined, 'phrase', undefined, ['wartete', 'Sie']);
+    expect(user.content).toContain('Keep these words exactly as written, in every alternative: "wartete" (2 times — the repetition is deliberate), "Sie".');
+  });
+});

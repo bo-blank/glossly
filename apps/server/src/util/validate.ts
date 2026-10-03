@@ -3,6 +3,8 @@ import {
   MAX_CONTEXT_CHARS,
   MAX_HEADING_PATH,
   MAX_INSTRUCTION_CHARS,
+  MAX_PROTECTED_TERM_CHARS,
+  MAX_PROTECTED_TERMS,
   MAX_TEMPERATURE,
   type SuggestionContext
 } from '@glossly/shared';
@@ -47,6 +49,14 @@ export function parseInstruction(raw: unknown): string | undefined | null {
   if (raw === undefined) return undefined;
   if (typeof raw !== 'string' || !raw.trim() || raw.length > MAX_INSTRUCTION_CHARS) return null;
   return raw;
+}
+
+/** undefined when absent, null unless an array of at most MAX_PROTECTED_TERMS non-blank strings of at most MAX_PROTECTED_TERM_CHARS. */
+export function parseProtectedTerms(raw: unknown): string[] | undefined | null {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw) || raw.length > MAX_PROTECTED_TERMS) return null;
+  const ok = raw.every((t): t is string => typeof t === 'string' && t.trim() !== '' && t.length <= MAX_PROTECTED_TERM_CHARS);
+  return ok ? raw : null;
 }
 
 const MIN_TIMEOUT_MS = 1000;

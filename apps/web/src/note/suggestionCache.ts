@@ -11,13 +11,26 @@ export interface CacheKeyParts {
   modifierInstruction?: string;
   instructionOverride?: string;
   temperature?: number;
+  protectedTerms?: string[];
   mode?: string;
   model: string;
   endpointUrl: string;
 }
 
-export function cacheKey({ selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, mode, model, endpointUrl }: CacheKeyParts): string {
-  return JSON.stringify([selectedText, context, modifier ?? '', modifierInstruction ?? '', instructionOverride ?? '', temperature ?? '', mode ?? '', model, endpointUrl]);
+export function cacheKey(parts: CacheKeyParts): string {
+  const { selectedText, context, modifier, modifierInstruction, instructionOverride, temperature, protectedTerms, mode, model, endpointUrl } = parts;
+  return JSON.stringify([
+    selectedText,
+    context,
+    modifier ?? '',
+    modifierInstruction ?? '',
+    instructionOverride ?? '',
+    temperature ?? '',
+    protectedTerms ?? [],
+    mode ?? '',
+    model,
+    endpointUrl
+  ]);
 }
 
 export function get(key: string): string[] | undefined {

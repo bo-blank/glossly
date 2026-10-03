@@ -6,7 +6,15 @@ export type { AiLikenessResult, BuiltInModifier as Modifier, SuggestionContext, 
 export interface SuggestionRequest
   extends Pick<
     SuggestRequestBody,
-    'selectedText' | 'context' | 'modifier' | 'modifierInstruction' | 'instructionOverride' | 'temperature' | 'mode' | 'previousSuggestions'
+    | 'selectedText'
+    | 'context'
+    | 'modifier'
+    | 'modifierInstruction'
+    | 'instructionOverride'
+    | 'temperature'
+    | 'mode'
+    | 'previousSuggestions'
+    | 'protectedTerms'
   > {
   model: string;
   baseUrl: string;

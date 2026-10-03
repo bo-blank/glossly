@@ -10,6 +10,7 @@
     relativeTime,
   } from '../storage/documentStore';
   import { STARTER_TEMPLATES } from '../editor/templates';
+  import ProtectedWords from './ProtectedWords.svelte';
   import { editorStore } from '../stores/noteStore';
   import {
     MARKDOWN_ACCEPT,
@@ -190,6 +191,10 @@
               <span class="block text-xs opacity-60">{template.blurb}</span>
             </button>
           {/each}
+        {:else if view === 'protected'}
+          <button class="btn btn-ghost btn-xs mb-1" onclick={() => (view = 'list')}>← Documents</button>
+          <p class="text-sm font-medium px-3 pb-1">Protected words in “{activeTitle}”</p>
+          <ProtectedWords />
         {:else}
           <button
             class="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md hover:bg-base-300 text-sm font-medium"
@@ -232,6 +237,15 @@
             <span class="block text-xs opacity-60 mt-0.5 pl-5">
               Images are embedded. Highlights, colours, underline, alignment and sub/superscript have no Markdown form — they export as plain text.
             </span>
+          </button>
+          <button
+            class="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md hover:bg-base-300 text-sm"
+            disabled={busy}
+            onclick={() => { reset(); view = 'protected'; }}
+          >
+            <span aria-hidden="true">🔒</span>
+            <span class="flex-1">Protected words…</span>
+            {#if activeDoc?.protectedTerms?.length}<span class="badge badge-sm">{activeDoc.protectedTerms.length}</span>{/if}
           </button>
           <input
             bind:this={importInput}
