@@ -2,7 +2,7 @@
 // separate stores so a document list never has to load every manuscript.
 
 const DB_NAME = 'glossly';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export interface DocMeta {
   id: string;
@@ -60,15 +60,20 @@ export function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
+    // Each step only adds what its version introduced, so an existing
+    // database keeps its data and a new one runs through every step.
+    request.onupgradeneeded = (event) => {
       const db = request.result;
-      // All three stores in version 1: `blobs` stays empty until WP3, but an
-      // empty store costs nothing and avoids a version bump later.
-      db.createObjectStore('documents', { keyPath: 'id' });
-      const meta = db.createObjectStore('documentMeta', { keyPath: 'id' });
-      meta.createIndex('by-updated', 'updatedAt');
-      const blobs = db.createObjectStore('blobs', { keyPath: 'id' });
-      blobs.createIndex('by-doc', 'docId');
+      if (event.oldVersion < 1) {
+        db.createObjectStore('documents', { keyPath: 'id' });
+        const meta = db.createObjectStore('documentMeta', { keyPath: 'id' });
+        meta.createIndex('by-updated', 'updatedAt');
+        const blobs = db.createObjectStore('blobs', { keyPath: 'id' });
+        blobs.createIndex('by-doc', 'docId');
+      }
+      if (event.oldVersion < 2) {
+        db.createObjectStore('templates', { keyPath: 'id' });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -219,6 +224,48 @@ export async function deleteBlobs(ids: string[]): Promise<void> {
   const db = await openDb();
   const tx = db.transaction('blobs', 'readwrite');
   for (const id of ids) tx.objectStore('blobs').delete(id);
+  return transactionDone(tx);
+}
+
+/** A document the writer saved as a template (Phase 4 WP6). Its images are blobs owned by `templateBlobOwner(id)`. */
+export interface TemplateRecord {
+  id: string;
+  name: string;
+  html: string;
+  createdAt: number;
+}
+
+/** The blob owner for a template's images — never a document id, so no document's cleanup touches them. */
+export function templateBlobOwner(id: string): string {
+  return `template:${id}`;
+}
+
+export async function putTemplate(record: TemplateRecord): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction('templates', 'readwrite');
+  tx.objectStore('templates').put(record);
+  return transactionDone(tx);
+}
+
+/** Newest first. */
+export async function listTemplates(): Promise<TemplateRecord[]> {
+  const db = await openDb();
+  const all = await promisify(db.transaction('templates').objectStore('templates').getAll() as IDBRequest<TemplateRecord[]>);
+  return all.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/** Removes the template and its images in one transaction. */
+export async function deleteTemplate(id: string): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(['templates', 'blobs'], 'readwrite');
+  tx.objectStore('templates').delete(id);
+  const cursor = tx.objectStore('blobs').index('by-doc').openKeyCursor(IDBKeyRange.only(templateBlobOwner(id)));
+  cursor.onsuccess = () => {
+    const c = cursor.result;
+    if (!c) return;
+    tx.objectStore('blobs').delete(c.primaryKey);
+    c.continue();
+  };
   return transactionDone(tx);
 }
 

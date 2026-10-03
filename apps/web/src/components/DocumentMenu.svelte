@@ -5,12 +5,18 @@
     documentStore,
     switchDocument,
     createDocument,
+    flushActive,
+    newId,
     setTemplateOrigin,
     renameDocument,
     removeDocument,
     relativeTime,
   } from '../storage/documentStore';
   import { BLANK_TEMPLATE_ID } from '../editor/templates';
+  import { generateHTML } from '@tiptap/core';
+  import { schemaExtensions } from '../editor/schemaExtensions';
+  import { plainTemplateContent } from '../editor/templateFormatting';
+  import { NAME_MAX, htmlForDocument, saveOwnTemplate } from '../storage/templateStore';
   import TemplatePicker from './TemplatePicker.svelte';
   import ProtectedWords from './ProtectedWords.svelte';
   import { editorStore } from '../stores/noteStore';
@@ -80,6 +86,34 @@
 
   async function choose(id) {
     if (await run(() => switchDocument(id), 'Could not save the current document, so it stayed open.')) close();
+  }
+
+  let templateName = $state('');
+
+  function startSaveTemplate() {
+    reset();
+    templateName = activeTitle;
+    view = 'save-template';
+  }
+
+  async function saveTemplate() {
+    const editor = $editorStore.editor;
+    if (!editor) return;
+    const saved = await run(async () => {
+      await flushActive(); // images pasted a moment ago must be in the store to be copied
+      const html = generateHTML(plainTemplateContent(editor.getJSON()), schemaExtensions);
+      await saveOwnTemplate(templateName, html);
+    }, 'Could not save the template.');
+    // Straight to the picker, where the new template now sits on top.
+    if (saved) view = 'new';
+  }
+
+  async function createFromOwn(template) {
+    const created = await run(async () => {
+      const id = newId();
+      await createDocument(await htmlForDocument(template, id), undefined, id);
+    }, 'Could not create the document.');
+    if (created) close();
   }
 
   async function create(template, language) {
@@ -187,7 +221,24 @@
       <div class="absolute left-0 top-full mt-1 p-2 w-80 max-w-[calc(100vw-2rem)] bg-base-200 border border-base-300 rounded-lg shadow-lg z-[100]" role="menu">
         {#if view === 'new'}
           <button class="btn btn-ghost btn-xs mb-1" onclick={() => (view = 'list')}>← Documents</button>
-          <TemplatePicker onchoose={create} disabled={busy} />
+          <TemplatePicker onchoose={create} onchooseOwn={createFromOwn} disabled={busy} />
+        {:else if view === 'save-template'}
+          <button class="btn btn-ghost btn-xs mb-1" onclick={() => (view = 'list')}>← Documents</button>
+          <form class="px-2 flex flex-col gap-2" onsubmit={(e) => { e.preventDefault(); saveTemplate(); }}>
+            <label class="text-sm font-medium" for="template-name-input">Save “{activeTitle}” as a template</label>
+            <input
+              id="template-name-input"
+              class="input input-bordered input-sm"
+              maxlength={NAME_MAX}
+              bind:value={templateName}
+              placeholder="Template name"
+            />
+            <p class="text-xs opacity-60">
+              Text, headings, lists, images, bold and italic are kept. Highlights, colours, underline, strikethrough and
+              alignment are left out, and to-dos start unchecked.
+            </p>
+            <button class="btn btn-primary btn-sm self-start" type="submit" disabled={busy || !templateName.trim()}>Save template</button>
+          </form>
         {:else if view === 'protected'}
           <button class="btn btn-ghost btn-xs mb-1" onclick={() => (view = 'list')}>← Documents</button>
           <p class="text-sm font-medium px-3 pb-1">Protected words in “{activeTitle}”</p>
@@ -243,6 +294,13 @@
             <span aria-hidden="true">🔒</span>
             <span class="flex-1">Protected words…</span>
             {#if activeDoc?.protectedTerms?.length}<span class="badge badge-sm">{activeDoc.protectedTerms.length}</span>{/if}
+          </button>
+          <button
+            class="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md hover:bg-base-300 text-sm"
+            disabled={busy}
+            onclick={startSaveTemplate}
+          >
+            <span aria-hidden="true">📑</span> Save as template…
           </button>
           <input
             bind:this={importInput}

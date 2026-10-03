@@ -114,7 +114,7 @@ function serial<T>(op: () => Promise<T>): Promise<T> {
   return run;
 }
 
-function newId(): string {
+export function newId(): string {
   return crypto.randomUUID();
 }
 
@@ -255,10 +255,11 @@ export function flushActive(): Promise<void> {
 }
 
 /** Returns the new document's id. `file` links it to the file it was opened from. */
-export function createDocument(html: string, file?: Omit<FileLink, 'syncedAt'>): Promise<string> {
+/** `id` lets a caller prepare content for the new document first — a template's image copies. */
+export function createDocument(html: string, file?: Omit<FileLink, 'syncedAt'>, id = newId()): Promise<string> {
   return serial(async () => {
     await bridge?.flush();
-    const meta = await createRecord(html, newId(), file);
+    const meta = await createRecord(html, id, file);
     // Imported Markdown can carry embedded data: images — store them as blobs.
     const shown = await prepareForDisplay(meta.id, html);
     setActive(meta.id);

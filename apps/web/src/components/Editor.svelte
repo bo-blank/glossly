@@ -16,6 +16,7 @@
   import { computeReadability, countWords } from '../utils/readability';
   import { BLANK_TEMPLATE_ID, isDocumentDisposable } from '../editor/templates';
   import TemplatePicker from './TemplatePicker.svelte';
+  import { htmlForDocument } from '../storage/templateStore';
   import { loadHintSeen, saveHintSeen, placeholderFor } from '../editor/firstRunHint';
   import { initDocuments, saveDocument, registerEditor, documentStore, setTemplateOrigin } from '../storage/documentStore';
   import { storeImage, releaseImagesExcept, releaseAllImages } from '../storage/imageStore';
@@ -136,19 +137,38 @@
     }
   }
 
-  function chooseTemplate(template, language) {
+  // `pendingTemplate` is { name, apply }: a built-in or an own template, waiting
+  // for the writer to confirm replacing a draft.
+  function choose(name, apply) {
     if (isDocumentDisposable(editor.getText())) {
-      applyTemplate({ template, language });
+      void apply();
       return;
     }
-    pendingTemplate = { template, language };
+    pendingTemplate = { name, apply };
   }
 
-  function applyTemplate({ template, language }) {
-    editor.chain().focus().setContent(template.content, { emitUpdate: true }).run();
-    // The structure guide follows the document's template; the blank page has none.
-    const id = get(documentStore).activeId;
-    void setTemplateOrigin(id, template.id === BLANK_TEMPLATE_ID ? undefined : { id: template.id, language });
+  function chooseTemplate(template, language) {
+    choose(template.name, () => {
+      editor.chain().focus().setContent(template.content, { emitUpdate: true }).run();
+      // The structure guide follows the document's template; the blank page has none.
+      const id = get(documentStore).activeId;
+      void setTemplateOrigin(id, template.id === BLANK_TEMPLATE_ID ? undefined : { id: template.id, language });
+      closeTemplateMenu();
+    });
+  }
+
+  function chooseOwnTemplate(template) {
+    choose(template.name, async () => {
+      const id = get(documentStore).activeId;
+      // Image copies owned by this document, so deleting the template cannot take them.
+      const html = await htmlForDocument(template, id);
+      editor.chain().focus().setContent(html, { emitUpdate: true }).run();
+      void setTemplateOrigin(id, undefined);
+      closeTemplateMenu();
+    });
+  }
+
+  function closeTemplateMenu() {
     templateOpen = false;
     pendingTemplate = null;
   }
@@ -697,12 +717,12 @@
           >
             {#if pendingTemplate}
               <div class="px-3 py-2 text-sm">
-                <p class="font-medium">Replace your draft with “{pendingTemplate.template.name}”?</p>
+                <p class="font-medium">Replace your draft with “{pendingTemplate.name}”?</p>
                 <p class="opacity-60 text-xs mt-1">Your current text is swapped out. ⌘Z brings it back.</p>
               </div>
               <div class="flex gap-1 px-1 pt-1">
                 <button
-                  onclick={() => applyTemplate(pendingTemplate)}
+                  onclick={() => pendingTemplate.apply()}
                   class="btn btn-primary btn-sm flex-1"
                 >Replace</button>
                 <button
@@ -711,7 +731,10 @@
                 >Cancel</button>
               </div>
             {:else}
-              <TemplatePicker onchoose={chooseTemplate} />
+              <TemplatePicker
+                onchoose={chooseTemplate}
+                onchooseOwn={get(documentStore).backend === 'indexeddb' ? chooseOwnTemplate : undefined}
+              />
             {/if}
           </div>
         {/if}
