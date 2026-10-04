@@ -1,4 +1,4 @@
-import { countWord } from '@glossly/shared';
+import { countWord, detectLanguage } from '@glossly/shared';
 import type { Modifier, SuggestionContext, SuggestionMode } from './types';
 
 const MODIFIER_INSTRUCTIONS: Record<string, string> = {
@@ -50,25 +50,8 @@ const ADDRESS_RULES = {
   Sie: 'Form of address: the text uses formal "Sie". If an alternative addresses someone, use "Sie" (Ihnen, Ihr), never "du".'
 } as const;
 
-// Stopwords that are common in one language and (near) absent in the other.
-const STOPWORDS = {
-  German: new Set(['der', 'die', 'das', 'und', 'ist', 'nicht', 'ich', 'du', 'sie', 'wir', 'mit', 'auf', 'für', 'ein', 'eine', 'den', 'dem', 'zu', 'von', 'sich', 'auch', 'bei', 'dass', 'sind', 'wie', 'noch', 'aber', 'mich', 'dich', 'haben', 'wird']),
-  English: new Set(['the', 'and', 'is', 'not', 'we', 'you', 'with', 'for', 'to', 'of', 'that', 'are', 'be', 'this', 'it', 'on', 'should', 'have', 'will', 'our', 'your', 'at', 'but', 'was', 'can', 'would', 'they', 'my', 'from', 'next'])
-} as const;
-
-/**
- * German or English, only when clear (≥2 hits and 2:1). A style instruction in
- * one language pulled e2b's output into that language — a German "förmlicher"
- * chip turned 12/15 English alternatives German. Naming the language fixed it.
- */
-export function detectLanguage(text: string): 'German' | 'English' | null {
-  const words = text.toLowerCase().match(/[a-zäöüß']+/g) ?? [];
-  const de = words.filter((w) => STOPWORDS.German.has(w)).length;
-  const en = words.filter((w) => STOPWORDS.English.has(w)).length;
-  if (de >= 2 && de >= 2 * en) return 'German';
-  if (en >= 2 && en >= 2 * de) return 'English';
-  return null;
-}
+// detectLanguage lives in @glossly/shared: the web app's readability needs it too.
+export { detectLanguage };
 
 function renderContext(context: string | SuggestionContext, selectedText: string): string[] {
   if (typeof context === 'string') return [`Context:\n${context}`];

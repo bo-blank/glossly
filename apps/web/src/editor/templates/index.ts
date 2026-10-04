@@ -42,3 +42,15 @@ export function defaultTemplateLanguage(languages: readonly string[] = globalThi
 export function isDocumentDisposable(text: string): boolean {
   return text.trim().length === 0;
 }
+
+/**
+ * Hohenheim's two yardsticks: web texts (target 16, no sentence over 20
+ * words) and specialist/press texts (target 12). Short-form publishing reads
+ * on screens, in passing; everything else, and a document without a
+ * template, is held to the specialist standard. The writer can switch.
+ */
+const WEB_TEXT_TEMPLATES = new Set(['linkedin-post', 'newsletter', 'video-script']);
+
+export function textTypeFor(doc: { textType?: 'fach' | 'web'; template?: { id: string } } | undefined): 'fach' | 'web' {
+  return doc?.textType ?? (doc?.template && WEB_TEXT_TEMPLATES.has(doc.template.id) ? 'web' : 'fach');
+}

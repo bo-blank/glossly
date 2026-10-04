@@ -4,6 +4,7 @@
   import { editorStore } from '../stores/noteStore';
   import { analyzeAiLikeness } from '../dashboard/requestAiLikeness';
   import StructureGuide from './StructureGuide.svelte';
+  import ReadabilityPanel from './ReadabilityPanel.svelte';
 
   const MIN_WORDS_FOR_ANALYSIS = 30;
 
@@ -44,22 +45,7 @@
     </div>
   </div>
 
-  <div>
-    <h3 class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-1.5">Readability</h3>
-    {#if $dashboardStore.fleschReadingEase === null}
-      <p class="opacity-60">Not enough text</p>
-    {:else}
-      <div class="flex flex-col gap-0.5 opacity-90">
-        <div class="flex justify-between">
-          <span>Flesch Reading Ease</span><span>{Math.round($dashboardStore.fleschReadingEase)}</span>
-        </div>
-        <div class="flex justify-between">
-          <span>Grade level</span><span>{Math.round($dashboardStore.fleschKincaidGrade)}</span>
-        </div>
-      </div>
-      <div class="badge badge-sm badge-outline mt-1.5">{$dashboardStore.readabilityLabel}</div>
-    {/if}
-  </div>
+  <ReadabilityPanel />
 
   <!-- Below stats and readability, so a long outline never pushes them out of view. -->
   <StructureGuide variant="aside" />

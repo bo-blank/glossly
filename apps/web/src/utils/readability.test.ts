@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeReadability,
-  countSentences,
   countSyllables,
   countWords,
   labelForFleschScore,
@@ -28,24 +27,6 @@ describe('countWords', () => {
   });
 });
 
-describe('countSentences', () => {
-  it('returns 0 for empty text', () => {
-    expect(countSentences('')).toBe(0);
-  });
-
-  it('counts terminator-delimited sentences', () => {
-    expect(countSentences('One. Two! Three?')).toBe(3);
-  });
-
-  it('treats text without a terminator as one sentence', () => {
-    expect(countSentences('no punctuation here')).toBe(1);
-  });
-
-  it('does not double-count clustered terminators', () => {
-    expect(countSentences('Really?! Yes.')).toBe(2);
-  });
-});
-
 describe('countSyllables', () => {
   it('counts short words as one syllable', () => {
     expect(countSyllables('cat')).toBe(1);
@@ -59,7 +40,7 @@ describe('countSyllables', () => {
 
   it('keeps German umlauts as vowels', () => {
     // Regression: stripping to a-z turned "über" into "ber" (1 syllable).
-    expect(countSyllables('über')).toBe(2);
+    expect(countSyllables('über', 'de')).toBe(2);
   });
 
   it('never returns less than one syllable', () => {
@@ -77,9 +58,11 @@ describe('splitSentences', () => {
   });
 
   it('includes a trailing fragment without terminator', () => {
-    const spans = splitSentences('Done. still typing');
+    // A lowercase word after a period continues the sentence ("ca. drei"), so
+    // the fragment here starts with a capital.
+    const spans = splitSentences('Done. Still typing');
     expect(spans).toHaveLength(2);
-    expect(spans[1].text).toBe('still typing');
+    expect(spans[1].text).toBe('Still typing');
   });
 
   it('returns nothing for empty text', () => {
@@ -117,19 +100,44 @@ describe('labelForFleschScore', () => {
 });
 
 describe('computeReadability', () => {
+  const long = (sentence: string, times: number) => Array(times).fill(sentence).join(' ');
+
   it('handles empty documents without dividing by zero', () => {
     const result = computeReadability('');
     expect(result.words).toBe(0);
-    expect(result.fleschReadingEase).toBeNull();
-    expect(result.readabilityLabel).toBe('Not enough text');
+    expect(result.score).toBeNull();
+    expect(result.sentenceLength).toBe(0);
   });
 
-  it('computes plausible scores for simple prose', () => {
-    const result = computeReadability('The cat sat on the mat. The dog ran to the park.');
-    expect(result.words).toBe(12);
+  it('gives no score below 50 words, but counts the barriers', () => {
+    const result = computeReadability('Das Budget wurde gestern beschlossen. Der Rest kommt morgen.');
+    expect(result.score).toBeNull();
+    expect(result.barriers.passive.count).toBe(1);
+  });
+
+  it('scores German text on the 0–20 index and English text with Flesch', () => {
+    const de = computeReadability(long('Der Bus fährt ab Montag öfter und das ist gut für die Stadt.', 6));
+    expect(de.language).toBe('de');
+    expect(de.score).toBeGreaterThan(14);
+    expect(de.score).toBeLessThanOrEqual(20);
+    const en = computeReadability(long('The cat sat on the mat and the dog ran to the park.', 6));
+    expect(en.language).toBe('en');
+    expect(en.score).toBeGreaterThan(80);
+  });
+
+  it('falls back to the given language when the text does not say', () => {
+    expect(computeReadability('Workshops Budget', { fallbackLanguage: 'de' }).language).toBe('de');
+    expect(computeReadability('Workshops Budget').language).toBe('en');
+  });
+
+  it('reads German slower than English', () => {
+    expect(computeReadability('und der die das ist', { words: 180 }).readingTimeMinutes).toBeCloseTo(1);
+    expect(computeReadability('the and is not we', { words: 230 }).readingTimeMinutes).toBeCloseTo(1);
+  });
+
+  it('ends a sentence at a line break, so headings do not merge into the next sentence', () => {
+    const result = computeReadability('Die Hauptidee\nEine Seite ohne Zuständige zieht nicht um.');
     expect(result.sentences).toBe(2);
-    expect(result.fleschReadingEase).toBeGreaterThan(80);
-    expect(result.readingTimeMinutes).toBeCloseTo(12 / 200);
   });
 
   it('prefers precomputed counts when provided', () => {

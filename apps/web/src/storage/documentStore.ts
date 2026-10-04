@@ -347,6 +347,11 @@ export function setTemplateOrigin(id: string, origin: TemplateOrigin | undefined
   return patchMeta(id, { template: origin });
 }
 
+/** Specialist or web text: which comprehensibility target and limits the dashboard applies. */
+export function setTextType(id: string, textType: 'fach' | 'web'): Promise<void> {
+  return patchMeta(id, { textType });
+}
+
 export function closeStructureGuide(id: string): Promise<void> {
   const current = get(documentStore).documents.find((d) => d.id === id)?.template;
   return current ? patchMeta(id, { template: { ...current, guideClosed: true } }) : Promise.resolve();

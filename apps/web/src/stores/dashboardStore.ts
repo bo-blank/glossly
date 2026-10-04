@@ -1,17 +1,8 @@
 // stores/dashboardStore.ts
 import { writable } from 'svelte/store';
-import type { ReadabilityResult } from '../utils/readability';
+import { EMPTY_READABILITY, type ReadabilityResult } from '../utils/readability';
 
-export const dashboardStore = writable<ReadabilityResult>({
-  words: 0,
-  characters: 0,
-  sentences: 0,
-  syllables: 0,
-  readingTimeMinutes: 0,
-  fleschReadingEase: null,
-  fleschKincaidGrade: null,
-  readabilityLabel: 'Not enough text'
-});
+export const dashboardStore = writable<ReadabilityResult>(EMPTY_READABILITY);
 
 export interface AiLikenessState {
   status: 'idle' | 'loading' | 'success' | 'error';

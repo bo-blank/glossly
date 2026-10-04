@@ -17,7 +17,7 @@
   import { ReadabilityHighlight, setReadabilityHighlight } from '../note/readabilityHighlight';
   import { settingsStore } from '../stores/settingsStore';
   import { computeReadability, countWords } from '../utils/readability';
-  import { BLANK_TEMPLATE_ID, isDocumentDisposable } from '../editor/templates';
+  import { BLANK_TEMPLATE_ID, defaultTemplateLanguage, isDocumentDisposable } from '../editor/templates';
   import TemplatePicker from './TemplatePicker.svelte';
   import { htmlForDocument } from '../storage/templateStore';
   import { loadHintSeen, saveHintSeen, placeholderFor } from '../editor/firstRunHint';
@@ -235,6 +235,11 @@
     return () => document.removeEventListener('mousedown', handleOutside);
   });
 
+  function activeDocMeta() {
+    const { documents, activeId } = get(documentStore);
+    return documents.find((d) => d.id === activeId);
+  }
+
   // Named documents only: "Untitled" tells the model nothing.
   function activeTitle() {
     const { documents, activeId } = get(documentStore);
@@ -344,7 +349,10 @@
     dashboardStore.set(
       computeReadability(ed.getText(), {
         words: ed.storage.characterCount.words(),
-        characters: ed.storage.characterCount.characters()
+        characters: ed.storage.characterCount.characters(),
+        // Short texts carry too few function words to tell; the template's
+        // language, else the picker's, decides then.
+        fallbackLanguage: activeDocMeta()?.template?.language ?? $settingsStore.templateLanguage ?? defaultTemplateLanguage()
       })
     );
   }

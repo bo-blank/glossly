@@ -15,6 +15,8 @@ export interface DocMeta {
   protectedTerms?: string[];
   /** The template the document started from, for its structure guide (Phase 4 WP5). */
   template?: TemplateOrigin;
+  /** Which comprehensibility limits apply; unset follows the template (see textTypeFor). */
+  textType?: 'fach' | 'web';
 }
 
 export interface TemplateOrigin {
