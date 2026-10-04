@@ -5,6 +5,7 @@
   import { analyzeAiLikeness } from '../dashboard/requestAiLikeness';
   import StructureGuide from './StructureGuide.svelte';
   import ReadabilityPanel from './ReadabilityPanel.svelte';
+  import TreatmentPlan from './TreatmentPlan.svelte';
 
   const MIN_WORDS_FOR_ANALYSIS = 30;
 
@@ -80,6 +81,8 @@
         <p class="opacity-50 text-xs mt-1">Write at least {MIN_WORDS_FOR_ANALYSIS} words to analyze.</p>
       {/if}
     {/if}
+    <!-- The estimate says how machine-like; the plan says where and what to do. -->
+    <TreatmentPlan />
   </div>
 
   <!-- Below the measures and the AI check, so a long outline never pushes them out of view. -->

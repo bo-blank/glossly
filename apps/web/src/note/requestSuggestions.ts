@@ -12,6 +12,12 @@ import { MAX_PHRASE_CHARS, MAX_SENTENCE_CHARS, MIN_SELECTION_CHARS, type Suggest
 
 const DEBOUNCE_MS = 200;
 
+/**
+ * The treatment plan's rewrites: an id the server does not know, so it uses
+ * the instruction sent with it (one per finding, see utils/slop.ts).
+ */
+export const TREATMENT_MODIFIER = 'treatment';
+
 export interface SelectionInfo {
   selectedText: string;
   context: SuggestionContext;
@@ -45,7 +51,8 @@ export const BUILT_IN_LABELS: Record<string, string> = {
   tighter: 'Tighter',
   vivid: 'More vivid',
   plain: 'Plainer',
-  more: 'New suggestions'
+  more: 'New suggestions',
+  [TREATMENT_MODIFIER]: 'Treatment plan'
 };
 
 function historyLabel(modifier: string | undefined, mode: SuggestionMode): string {
@@ -91,6 +98,20 @@ export function onSelectionChange(info: SelectionInfo | null) {
   debounceTimer = setTimeout(() => {
     void runRequest(info, undefined);
   }, DEBOUNCE_MS);
+}
+
+/**
+ * Called from the treatment plan right after it selected a finding's sentence:
+ * rewrites the current selection by the finding's instruction. A phrase up to
+ * MAX_PHRASE_CHARS, a sentence up to MAX_SENTENCE_CHARS; longer, nothing.
+ */
+export function requestTreatment(instruction: string) {
+  if (!latestSelection) return;
+  const length = latestSelection.selectedText.length;
+  const mode: SuggestionMode | null = length <= MAX_PHRASE_CHARS ? 'phrase' : length <= MAX_SENTENCE_CHARS ? 'sentence' : null;
+  if (!mode) return;
+  clearTimeout(debounceTimer);
+  void runRequest(latestSelection, TREATMENT_MODIFIER, instruction, mode);
 }
 
 /** Called from a modifier chip click — reuses the current selection, no debounce, no re-select needed. */

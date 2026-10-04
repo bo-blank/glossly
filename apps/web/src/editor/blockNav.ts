@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core';
-import { Selection } from 'prosemirror-state';
+import { Selection, TextSelection } from 'prosemirror-state';
 import { moveSection, sectionStart } from './section';
 
 // Shared by the lists that show blocks outside the text — the table of
@@ -59,4 +59,17 @@ export function blockListKey(e: KeyboardEvent, editor: Editor, index: number): n
     return index;
   }
   return null;
+}
+
+/**
+ * Scrolls `from` to LAND_AT at once, then selects [from, to). Instant, not
+ * smooth: the margin note places itself from the selection's screen position
+ * the moment the selection changes, so the scroll has to be done by then.
+ */
+export function revealRange(editor: Editor, from: number, to: number) {
+  const { view } = editor;
+  const top = view.coordsAtPos(from).top + window.scrollY - window.innerHeight * LAND_AT;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+  view.focus();
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
 }

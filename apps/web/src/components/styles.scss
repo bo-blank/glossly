@@ -326,6 +326,15 @@
     background-color: var(--purple-light);
   }
 
+  /* Treatment plan: places of machine-sounding patterns, while the plan is open. */
+  .slop-mark {
+    text-decoration: underline wavy;
+    text-decoration-color: color-mix(in oklab, var(--color-warning) 80%, transparent);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+    text-decoration-skip-ink: none;
+  }
+
   /* Live readability highlighting: yellow from 20 words, red from 30 (utils/readability.ts) */
   .readability-standard {
     background-color: var(--readability-standard);

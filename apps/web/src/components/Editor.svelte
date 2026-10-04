@@ -15,6 +15,7 @@
   import { dashboardStore } from '../stores/dashboardStore';
   import { onSelectionChange, dismiss } from '../note/requestSuggestions';
   import { ReadabilityHighlight, setReadabilityHighlight } from '../note/readabilityHighlight';
+  import { SlopHighlight } from '../note/slopHighlight';
   import { settingsStore } from '../stores/settingsStore';
   import { computeReadability, countWords } from '../utils/readability';
   import { BLANK_TEMPLATE_ID, defaultTemplateLanguage, isDocumentDisposable } from '../editor/templates';
@@ -422,6 +423,9 @@
         // The same word count as the readability highlighting: dashes are not words.
         CharacterCount.configure({ wordCounter: countWords }),
         ReadabilityHighlight,
+        SlopHighlight.configure({
+          fallbackLanguage: () => activeDocMeta()?.template?.language ?? $settingsStore.templateLanguage ?? defaultTemplateLanguage(),
+        }),
         TableOfContents.configure({
           getIndex: getHierarchicalIndexes,
           onUpdate: (content) => tocStore.set(content),

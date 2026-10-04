@@ -112,6 +112,8 @@
       // A text selection inside the editor ends with a trailing click on mouseup — that's a
       // new selection superseding the note via onSelectionChange, not a "click away to dismiss".
       if ((e.target as HTMLElement)?.closest?.('.ProseMirror')) return;
+      // A control that just opened this note (the treatment plan's places) is not a click away.
+      if ((e.target as HTMLElement)?.closest?.('[data-opens-note]')) return;
       dismiss();
     };
     const handleKeydown = (e: KeyboardEvent) => {

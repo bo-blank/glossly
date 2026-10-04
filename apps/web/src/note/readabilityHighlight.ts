@@ -4,6 +4,7 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { splitSentences, scoreSentence } from '../utils/readability';
+import { blockTexts } from '../editor/blockText';
 
 const DEBOUNCE_MS = 300;
 // Headings/code aren't prose sentences - scoring them by word count is meaningless.
@@ -26,12 +27,10 @@ function buildDecorations(doc: ProseMirrorNode): DecorationSet {
   if (!enabled) return DecorationSet.empty;
   const decorations: Decoration[] = [];
 
-  doc.descendants((node, pos) => {
-    if (!node.isTextblock || UNSCORED_NODE_TYPES.has(node.type.name)) return;
-    const text = node.textContent;
-    if (!text.trim()) return;
-
-    const blockStart = pos + 1;
+  // Position-aligned text: textContent skips hard breaks and put every mark
+  // after a <br> one character too far left.
+  for (const { text, pos: blockStart } of blockTexts(doc, (node) => !UNSCORED_NODE_TYPES.has(node.type.name))) {
+    if (!text.trim()) continue;
     for (const sentence of splitSentences(text)) {
       const result = scoreSentence(sentence.text);
       if (!result) continue;
@@ -41,7 +40,7 @@ function buildDecorations(doc: ProseMirrorNode): DecorationSet {
         })
       );
     }
-  });
+  }
 
   return DecorationSet.create(doc, decorations);
 }
