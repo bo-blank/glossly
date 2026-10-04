@@ -100,7 +100,7 @@
       {:else}
         <div class="flex justify-between" title={t.scoreHint}>
           <span>{t.score}</span>
-          <span class="font-medium">
+          <span class="font-semibold" class:met={r.score >= target} class:over={r.score < target}>
             {r.language === 'de' ? `${num(r.score)} / 20` : Math.round(r.score)}
           </span>
         </div>
@@ -161,10 +161,16 @@
 {/snippet}
 
 <style>
-  /* Over a limit: the warning hue, darkened towards the text colour so it
-     stays readable on white (and lightens in dark mode). */
+  /* Over a limit (or the index below its target): the warning hue, darkened
+     towards the text colour so it stays readable on white (and lightens in
+     dark mode). */
   .over {
     font-weight: 600;
     color: color-mix(in oklab, var(--color-warning) 55%, var(--color-base-content));
+  }
+
+  /* The index at or above the target of its text type, darkened the same way. */
+  .met {
+    color: color-mix(in oklab, var(--color-success) 60%, var(--color-base-content));
   }
 </style>
