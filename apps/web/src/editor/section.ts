@@ -4,6 +4,7 @@ import { NodeSelection, Plugin, Selection, TextSelection, type Command } from 'p
 import { closeHistory } from 'prosemirror-history';
 import { dropPoint } from 'prosemirror-transform';
 import { sectionView } from './sectionView';
+import { gapToIndex } from './blockDnd';
 
 // Phase 5: the document is made of blocks, one per unit of meaning. A block is
 // a `section` node with an optional name; it is not in the `block` group, so
@@ -176,7 +177,8 @@ export function moveSectionBy(delta: -1 | 1): Command {
   };
 }
 
-function sectionStart(doc: PMNode, index: number): number {
+/** Document position where the block at `index` starts. */
+export function sectionStart(doc: PMNode, index: number): number {
   let pos = 0;
   for (let i = 0; i < index; i++) pos += doc.child(i).nodeSize;
   return pos;
@@ -194,8 +196,7 @@ export function sectionDropTarget(doc: PMNode, from: number, mousePos: number): 
   if (point === null) return null;
   const $point = doc.resolve(point);
   if ($point.depth !== 0) return null;
-  const gap = $point.index(0);
-  return gap > from ? gap - 1 : gap;
+  return gapToIndex(from, $point.index(0));
 }
 
 /**

@@ -302,6 +302,9 @@ fastest way to reorder.
 
 ## WP5b — Move in the table of contents (left column)
 
+**Done 2026-10-04, pulled forward into WP4 at the writer's request.** The
+shared helper is `apps/web/src/editor/blockDnd.ts`; the WP5 outline reuses it.
+
 **Goal:** the writer reorders blocks in the left column as well, where they
 already navigate by headings.
 
