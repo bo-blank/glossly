@@ -249,6 +249,65 @@
     opacity: 1;
   }
 
+  /* The + between blocks: covers the gap above a block (and below the last),
+     invisible until hovered. The gap is the 1rem margin between blocks, or
+     the editor's padding before the first and after the last. */
+  .glossly-gap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 1;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0.75rem;
+      right: 0;
+      top: 50%;
+      border-top: 1px solid var(--color-primary);
+    }
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  .glossly-gap-before {
+    top: -1rem;
+  }
+
+  .glossly-gap-after {
+    bottom: -1rem;
+    display: none;
+  }
+
+  .glossly-block:last-child > .glossly-gap-after {
+    display: flex;
+  }
+
+  .glossly-gap-add {
+    position: relative;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 9999px;
+    border: 1px solid var(--color-primary);
+    background: var(--color-base-100);
+    color: var(--color-primary);
+    font-size: 0.9rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
   .glossly-block.is-dragging {
     opacity: 0.5;
   }

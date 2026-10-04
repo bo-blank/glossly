@@ -5,7 +5,7 @@ import { fromMarkdown, toMarkdown } from './markdown';
 import { emptyParagraphPos } from './emptyPlaceholder';
 import { EditorState, TextSelection, type Command } from 'prosemirror-state';
 import { history, undo } from 'prosemirror-history';
-import { hasSectionMarkup, insertSectionAfter, joinSectionBackward, joinSectionForward, moveSection, moveSectionBy, regroupSections, sectionMoves, renameSection, sectionDropTarget, splitSection } from './section';
+import { hasSectionMarkup, insertSectionAfter, insertSectionAt, joinSectionBackward, joinSectionForward, moveSection, moveSectionBy, regroupSections, sectionMoves, renameSection, sectionDropTarget, splitSection } from './section';
 import { schemaExtensions } from './schemaExtensions';
 
 const schema = getSchema(schemaExtensions);
@@ -349,5 +349,24 @@ describe('insertSectionAfter (New block button in the table of contents)', () =>
   it('keeps an empty block through Markdown only once it has text', () => {
     const doc = run(insertSectionAfter, stateAt(docOf(sec('', p('eins'))), 'eins'))!.doc;
     expect(split(fromMarkdown(toMarkdown(doc), schema))).toEqual([['eins']]);
+  });
+});
+
+describe('insertSectionAt (the + between blocks)', () => {
+  const two = () => docOf(sec('A', p('eins')), sec('B', p('zwei')));
+
+  it('inserts an empty block before the first, between two, after the last', () => {
+    const state = EditorState.create({ doc: two() });
+    expect(named(run(insertSectionAt(0), state)!.doc)).toEqual(['|', 'A|eins', 'B|zwei']);
+    expect(named(run(insertSectionAt(1), state)!.doc)).toEqual(['A|eins', '|', 'B|zwei']);
+    const last = run(insertSectionAt(2), state)!;
+    expect(named(last.doc)).toEqual(['A|eins', 'B|zwei', '|']);
+    expect(last.selection.$from.index(0)).toBe(2);
+  });
+
+  it('refuses gaps that do not exist', () => {
+    const state = EditorState.create({ doc: two() });
+    expect(run(insertSectionAt(-1), state)).toBeNull();
+    expect(run(insertSectionAt(3), state)).toBeNull();
   });
 });

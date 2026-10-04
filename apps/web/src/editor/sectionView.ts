@@ -1,6 +1,6 @@
 import type { NodeViewRenderer } from '@tiptap/core';
 import { NodeSelection, Selection } from 'prosemirror-state';
-import { renameSection, SECTION_NAME_MAX } from './section';
+import { insertSectionAt, renameSection, SECTION_NAME_MAX } from './section';
 
 const NAME_THIS = 'Name this block';
 
@@ -43,7 +43,37 @@ export const sectionView: NodeViewRenderer = ({ node: initial, getPos, editor })
 
   const contentDOM = document.createElement('div');
   contentDOM.className = 'glossly-block-content';
-  dom.append(handle, label, contentDOM);
+
+  // A line with a + in the gap above the block (and below the last one, see
+  // styles.scss), shown on hover: click adds an empty block there.
+  const insertBefore = inserter('before');
+  const insertAfter = inserter('after');
+  dom.append(insertBefore, handle, label, contentDOM, insertAfter);
+
+  function inserter(side: 'before' | 'after') {
+    const gap = document.createElement('div');
+    gap.className = `glossly-gap glossly-gap-${side}`;
+    gap.contentEditable = 'false';
+    const plus = document.createElement('button');
+    plus.type = 'button';
+    plus.className = 'glossly-gap-add';
+    plus.textContent = '+';
+    plus.title = 'Add a block here';
+    plus.setAttribute('aria-label', side === 'before' ? 'Add a block above' : 'Add a block below');
+    gap.append(plus);
+    // Keep the editor's focus and selection until the click decides.
+    gap.addEventListener('mousedown', (e) => e.preventDefault());
+    gap.addEventListener('click', (e) => {
+      e.preventDefault();
+      const pos = getPos();
+      if (typeof pos !== 'number' || !editor.isEditable) return;
+      const { state } = editor.view;
+      const index = state.doc.resolve(pos).index(0);
+      insertSectionAt(side === 'before' ? index : index + 1)(state, editor.view.dispatch);
+      editor.view.focus();
+    });
+    return gap;
+  }
 
   let dragging: typeof editor.view.dragging = null;
   // The drag is started here rather than by ProseMirror, which would drag an
@@ -140,7 +170,8 @@ export const sectionView: NodeViewRenderer = ({ node: initial, getPos, editor })
     startEditing();
   });
 
-  const isUI = (target: globalThis.Node) => label.contains(target) || handle.contains(target);
+  const isUI = (target: globalThis.Node) =>
+    [label, handle, insertBefore, insertAfter].some((el) => el.contains(target));
 
   render();
 
@@ -157,7 +188,13 @@ export const sectionView: NodeViewRenderer = ({ node: initial, getPos, editor })
     // events nor treat its changes as edits. That includes the state classes
     // on the block itself — any other mutation of it makes ProseMirror rebuild
     // the view, which would throw away an open name input.
-    stopEvent: (event) => isUI(event.target as globalThis.Node),
+    // Except drops on the + strips: they sit exactly where a dragged block goes.
+    stopEvent: (event) => {
+      const target = event.target as globalThis.Node;
+      const onGap = insertBefore.contains(target) || insertAfter.contains(target);
+      if (onGap && (event.type.startsWith('drag') || event.type === 'drop')) return false;
+      return isUI(target);
+    },
     ignoreMutation: (mutation) =>
       isUI(mutation.target) || (mutation.type === 'attributes' && mutation.target === dom && mutation.attributeName === 'class')
   };

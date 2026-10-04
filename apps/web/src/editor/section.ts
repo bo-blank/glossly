@@ -85,20 +85,29 @@ export const splitSection: Command = (state, dispatch) => {
 };
 
 /**
+ * An empty block in `gap` (0 = before the first block, n = after the last),
+ * with the cursor in it. Used by the + between blocks.
+ */
+export function insertSectionAt(gap: number): Command {
+  return (state, dispatch) => {
+    const { doc, schema } = state;
+    if (gap < 0 || gap > doc.childCount) return false;
+    if (dispatch) {
+      const at = sectionStart(doc, gap);
+      const tr = state.tr.insert(at, schema.nodes.section.create(null, schema.nodes.paragraph.create()));
+      dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 2)).scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/**
  * An empty block right after the one holding the cursor, with the cursor in
  * it. For places that have no cursor position to split at, like the table of
  * contents.
  */
-export const insertSectionAfter: Command = (state, dispatch) => {
-  const { doc, schema } = state;
-  const index = state.selection.$from.index(0);
-  if (dispatch) {
-    const at = sectionStart(doc, index) + doc.child(index).nodeSize;
-    const tr = state.tr.insert(at, schema.nodes.section.create(null, schema.nodes.paragraph.create()));
-    dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 2)).scrollIntoView());
-  }
-  return true;
-};
+export const insertSectionAfter: Command = (state, dispatch) =>
+  insertSectionAt(state.selection.$from.index(0) + 1)(state, dispatch);
 
 /** Whether the cursor sits at the very start (or end) of its block's text. */
 function atSectionEdge(state: Parameters<Command>[0], side: 'start' | 'end'): number | null {
