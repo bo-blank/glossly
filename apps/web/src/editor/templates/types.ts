@@ -4,6 +4,8 @@ export type TemplateGroup = 'work' | 'publishing' | 'fiction';
 export interface GuideNote {
   section: string;
   hint: string;
+  /** Applies to the whole text, so no block carries this name (e.g. the shot lines of a video script). */
+  general?: boolean;
 }
 
 /** One template in one language. The same id exists in every language. */

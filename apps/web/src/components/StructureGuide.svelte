@@ -14,7 +14,7 @@
 
   let doc = $derived($documentStore.documents.find((d) => d.id === $documentStore.activeId));
   let template = $derived(doc?.template && !doc.template.guideClosed ? findTemplate(doc.template.language, doc.template.id) : undefined);
-  let label = $derived(doc?.template?.language === 'de' ? { title: 'Aufbau', close: 'Schließen' } : { title: 'Structure', close: 'Close' });
+  let label = $derived(doc?.template?.language === 'de' ? { title: 'Aufbau', close: 'Schließen', general: 'ganzer Text' } : { title: 'Structure', close: 'Close', general: 'whole text' });
 
   function close(e: MouseEvent) {
     e.preventDefault(); // inside <summary> it would toggle the details too
@@ -26,7 +26,8 @@
   <dl class="space-y-2">
     {#each template!.guide as note (note.section)}
       <div>
-        <dt class="font-medium">{note.section}</dt>
+        <!-- General notes have no block of their own; the others name one. -->
+        <dt class="font-medium">{note.section}{#if note.general}<span class="font-normal opacity-60 ml-1">· {label.general}</span>{/if}</dt>
         <dd class="opacity-70 leading-snug">{note.hint}</dd>
       </div>
     {/each}

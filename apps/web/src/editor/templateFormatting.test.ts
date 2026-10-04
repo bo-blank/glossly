@@ -59,4 +59,15 @@ describe('plainTemplateContent', () => {
     plainTemplateContent(doc);
     expect(doc.content[0].marks).toEqual([{ type: 'underline' }]);
   });
+
+  it('keeps the blocks and their names', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        { type: 'section', attrs: { name: 'Einstieg' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a' }] }] },
+        { type: 'section', attrs: { name: '' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'b' }] }] }
+      ]
+    };
+    expect(plainTemplateContent(doc)).toEqual(doc);
+  });
 });

@@ -71,6 +71,30 @@ describe('templates', () => {
     }
   });
 
+  // Phase 5 decision D: a template starts as named blocks that match its guide.
+  const blockNames = (html: string) => [...html.matchAll(/<section data-block="([^"]*)"/g)].map((m) => m[1]);
+
+  it('starts every template as one named block per guide section, in guide order', () => {
+    for (const t of ALL) {
+      const expected = t.guide.filter((note) => !note.general).map((note) => note.section);
+      expect(blockNames(t.content), `${t.id}`).toEqual(expected);
+    }
+  });
+
+  it('leaves no content outside a block', () => {
+    for (const t of ALL.filter((t) => t.id !== BLANK_TEMPLATE_ID)) {
+      const outside = t.content.replace(/<section\b[\s\S]*?<\/section>/g, '').trim();
+      expect(outside, `${t.id}`).toBe('');
+    }
+  });
+
+  it('keeps general notes (no block of their own) the same in both languages', () => {
+    for (const en of EN) {
+      const de = DE.find((t) => t.id === en.id)!;
+      expect(de.guide.map((n) => !!n.general)).toEqual(en.guide.map((n) => !!n.general));
+    }
+  });
+
   it.each([
     ['cover-letter', 'Sie'],
     ['business-email', 'Sie'],
