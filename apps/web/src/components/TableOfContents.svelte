@@ -36,15 +36,37 @@
   let dragFrom = $state(null);
   let dropGap = $state(null);
 
+  // Where a jump lands: the target's top a third of the way down the window,
+  // so the section reads from just above the middle, with a little of what
+  // comes before still in view.
+  const LAND_AT = 1 / 3;
+
+  /**
+   * Puts the cursor at `pos` and scrolls the node starting at `nodePos` to
+   * LAND_AT. Not Tiptap's focus().scrollIntoView(): that scrolls only as far
+   * as needed, and its focus scrolls again a frame later.
+   */
+  function jumpTo(pos, nodePos) {
+    if (!editor) return;
+    const { view } = editor;
+    const { state } = view;
+    view.dispatch(state.tr.setSelection(Selection.near(state.doc.resolve(pos))));
+    view.focus();
+    const target = view.nodeDOM(nodePos);
+    if (!(target instanceof HTMLElement)) return;
+    const top = target.getBoundingClientRect().top + window.scrollY - window.innerHeight * LAND_AT;
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
+  }
+
   function scrollToHeading(item) {
-    editor?.chain().focus().setTextSelection(item.pos).scrollIntoView().run();
+    jumpTo(item.pos + 1, item.pos);
   }
 
   function scrollToBlock(index) {
     if (!editor) return;
-    const { doc } = editor.state;
-    const at = Selection.near(doc.resolve(sectionStart(doc, index) + 1)).from;
-    editor.chain().focus().setTextSelection(at).scrollIntoView().run();
+    const start = sectionStart(editor.state.doc, index);
+    jumpTo(start + 1, start);
   }
 
   function toggleNames() {
