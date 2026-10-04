@@ -28,7 +28,12 @@ export function setSlopPlan(on: boolean, view?: EditorView) {
 function build(doc: ProseMirrorNode): DecorationSet {
   if (!open) return DecorationSet.empty;
   // Code is not prose.
-  const blocks: TextBlock[] = blockTexts(doc, (node) => node.type.name !== 'codeBlock');
+  const blocks: TextBlock[] = [];
+  doc.forEach((section, offset, index) => {
+    const name = (section.attrs.name as string) || String(index + 1);
+    // blockTexts counts from the section's content; +1 steps into it.
+    for (const b of blockTexts(section, (node) => node.type.name !== 'codeBlock')) blocks.push({ ...b, pos: offset + b.pos + 1, section: name });
+  });
   const detected = detectLanguage(blocks.map((b) => b.text).join(' '));
   const language: TextLanguage = detected === 'German' ? 'de' : detected === 'English' ? 'en' : fallbackLanguage();
   const findings = findSlop(blocks, language);

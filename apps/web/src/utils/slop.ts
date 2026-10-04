@@ -10,7 +10,7 @@
 
 import { splitSentences, wordsOf, type TextLanguage } from './textUnits';
 
-export type SlopRule = 'phrase' | 'closer' | 'notOnly' | 'notThis' | 'exactly' | 'contrast' | 'triad' | 'dash' | 'intensifier' | 'rhetorical' | 'rhythm';
+export type SlopRule = 'phrase' | 'closer' | 'notOnly' | 'notThis' | 'exactly' | 'contrast' | 'triad' | 'dash' | 'intensifier' | 'rhetorical' | 'staccato' | 'rhythm';
 
 /** A place in the text: offsets into the analysed block text, plus the block's document position. */
 export interface SlopHit {
@@ -32,6 +32,10 @@ export interface SlopFinding {
 export interface TextBlock {
   text: string;
   pos: number;
+  /** Headings and list items are not prose: they stay out of the rhythm rules. */
+  kind?: 'text' | 'heading' | 'list';
+  /** The block (section) it belongs to, by name or number: monotony is judged per block. */
+  section?: string;
 }
 
 type Copy = Record<TextLanguage, string>;
@@ -117,11 +121,19 @@ export const SLOP_RULES: Record<SlopRule, { title: Copy; advice: Copy; instructi
     },
     instruction: 'Rewrite without the short rhetorical question ("{quote}"). Say the answer directly.'
   },
+  staccato: {
+    title: { de: 'Stakkato', en: 'Staccato' },
+    advice: {
+      de: 'Viele sehr kurze Sätze hintereinander wirken zerhackt. Zwei oder drei zu einem Satz verbinden, der den Zusammenhang sagt.',
+      en: 'Many very short sentences in a row feel chopped. Join two or three into one sentence that says how they connect.'
+    },
+    instruction: 'Rewrite these short sentences ("{quote}") as one or two flowing sentences that show how the ideas connect.'
+  },
   rhythm: {
     title: { de: 'Gleichförmiger Satzrhythmus', en: 'Monotonous rhythm' },
     advice: {
-      de: 'Fast alle Sätze sind gleich lang. Kurze Sätze einstreuen, ab und zu einen längeren.',
-      en: 'Almost every sentence is the same length. Mix in short ones, and the odd long one.'
+      de: 'Ein Satz ist fast so lang wie der nächste. Kurze Sätze einstreuen, ab und zu einen längeren.',
+      en: 'Each sentence is almost as long as the next. Mix in short ones, and the odd long one.'
     },
     instruction: ''
   }
@@ -235,8 +247,14 @@ export const SLOP_LIMITS = {
   triad: { count: 3, perWords: 120 },
   dash: { count: 3, perWords: 100 },
   intensifier: { count: 3, perWords: 100 },
-  /** Monotony: enough sentences, and lengths varying less than this (coefficient of variation). */
-  rhythm: { sentences: 8, variation: 0.3 }
+  /** Staccato: at least `run` sentences in a row of at most `maxWords` words. */
+  staccato: { maxWords: 4, run: 3 },
+  /**
+   * Monotony: enough sentences, and neighbours that differ in length by less
+   * than this share of the mean. Measured 2026-10-04: an even machine text
+   * 0.04; every template, press release and academic text 0.26 or more.
+   */
+  rhythm: { sentences: 8, change: 0.2 }
 } as const;
 
 function hitsOf(blocks: TextBlock[], re: RegExp, filter?: (m: RegExpExecArray) => boolean): SlopHit[] {
@@ -295,15 +313,65 @@ export function findSlop(blocks: TextBlock[], language: TextLanguage): SlopFindi
   const rhetorical = hitsOf(blocks, RHETORICAL, (m) => wordsOf(m[1]).length <= 4);
   if (rhetorical.length >= SLOP_LIMITS.rhetorical) add('rhetorical', rhetorical);
 
-  const lengths = blocks.flatMap((b) => splitSentences(b.text).map((s) => wordsOf(s.text).length)).filter((n) => n >= 3);
-  if (lengths.length >= SLOP_LIMITS.rhythm.sentences) {
-    const mean = lengths.reduce((a, b) => a + b, 0) / lengths.length;
-    const sd = Math.sqrt(lengths.reduce((a, n) => a + (n - mean) ** 2, 0) / lengths.length);
-    if (sd / mean < SLOP_LIMITS.rhythm.variation) {
-      const lo = Math.round(mean - sd);
-      const hi = Math.round(mean + sd);
-      add('rhythm', [], language === 'de' ? `meist ${lo}–${hi} Wörter pro Satz` : `mostly ${lo}–${hi} words a sentence`);
+  // Prose sentences in order, with their place: headings and list items break the flow.
+  const prose: ({ words: number; from: number; to: number; text: string; short: boolean; section?: string } | null)[] = [];
+  for (const b of blocks) {
+    if (b.kind === 'heading' || b.kind === 'list') {
+      prose.push(null);
+      continue;
+    }
+    for (const sentence of splitSentences(b.text)) {
+      const words = wordsOf(sentence.text).length;
+      // A real sentence (ends with . ! ? …), not a greeting line or a name, and not direct speech.
+      const closed = /[.!?…]["“”'’»«)]*$/.test(sentence.text);
+      const speech = /^["„“«‚'’]/.test(sentence.text);
+      const short = closed && !speech && words <= SLOP_LIMITS.staccato.maxWords;
+      prose.push({ words, from: b.pos + sentence.start, to: b.pos + sentence.end, text: sentence.text, short, section: b.section });
     }
   }
+
+  const runs: SlopHit[] = [];
+  let run: { from: number; to: number; text: string }[] = [];
+  const closeRun = () => {
+    if (run.length >= SLOP_LIMITS.staccato.run) {
+      runs.push({ from: run[0].from, to: run[run.length - 1].to, quote: run.map((r) => r.text).join(' ') });
+    }
+    run = [];
+  };
+  for (const p of prose) {
+    if (p?.short) run.push(p);
+    else closeRun();
+  }
+  closeRun();
+  if (runs.length) {
+    const sentences = prose.filter((p) => p).length;
+    const short = prose.filter((p) => p?.short).length;
+    add('staccato', runs, language === 'de' ? `${short} von ${sentences} Sätzen mit höchstens ${SLOP_LIMITS.staccato.maxWords} Wörtern` : `${short} of ${sentences} sentences of ${SLOP_LIMITS.staccato.maxWords} words or fewer`);
+  }
+
+  // Per block: a machine-written section stays even in itself, however varied
+  // the rest of the text is. Without blocks, the whole text is one.
+  const groups = new Map<string, number[]>();
+  for (const p of prose) {
+    if (!p || p.words < 3) continue;
+    const key = p.section ?? '';
+    groups.set(key, [...(groups.get(key) ?? []), p.words]);
+  }
+  const even: string[] = [];
+  for (const [section, lengths] of groups) {
+    if (lengths.length < SLOP_LIMITS.rhythm.sentences) continue;
+    const mean = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+    let change = 0;
+    for (let i = 1; i < lengths.length; i++) change += Math.abs(lengths[i] - lengths[i - 1]);
+    change /= (lengths.length - 1) * mean;
+    if (change >= SLOP_LIMITS.rhythm.change) continue;
+    const sorted = [...lengths].sort((a, b) => a - b);
+    const lo = sorted[Math.floor(sorted.length * 0.2)];
+    const hi = sorted[Math.ceil(sorted.length * 0.8) - 1];
+    const span = language === 'de' ? `meist ${lo}–${hi} Wörter pro Satz` : `mostly ${lo}–${hi} words a sentence`;
+    const where = section && groups.size > 1 ? (language === 'de' ? `Block „${section}“: ` : `block "${section}": `) : '';
+    even.push(where + span);
+  }
+  if (even.length) add('rhythm', [], even.join('; '));
   return findings;
 }

@@ -94,7 +94,53 @@ describe('patterns that count from a threshold', () => {
   });
 });
 
+describe('staccato', () => {
+  it('finds runs of three or more very short sentences, as one place each', async () => {
+    const { STACCATO_DE } = await import('./slop.fixtures');
+    const f = find(blocks(...STACCATO_DE.split('\n')), 'staccato')!;
+    expect(f.hits).toHaveLength(2);
+    expect(f.hits[0].quote).toBe('Dann kam der Wendepunkt. Ein Kunde. Ein Satz. Alles anders.');
+    // A run across paragraphs is one place, from its first sentence to its last.
+    expect(f.hits[0].from).toBe(1001);
+    expect(f.hits[0].to).toBe(2001 + 'Ein Kunde. Ein Satz. Alles anders.'.length);
+  });
+
+  it('leaves greetings, names, direct speech, headings and lists out', () => {
+    expect(rules(blocks('Ich lese jede Antwort.', 'Bis nächste Woche', 'Jana'))).not.toContain('staccato');
+    expect(rules(blocks('„Wohin denn?“', '„Nach Hause.“', '„Jetzt?“'))).not.toContain('staccato');
+    const withHeading: TextBlock[] = [
+      { text: 'Kurz gesagt.', pos: 1 },
+      { text: 'Ein Titel', pos: 100, kind: 'heading' },
+      { text: 'Gut so.', pos: 200 },
+      { text: 'Weiter.', pos: 300 }
+    ];
+    expect(rules(withHeading)).not.toContain('staccato');
+    const list: TextBlock[] = ['Kürzer.', 'Ehrlicher.', 'Mutiger.'].map((text, i) => ({ text, pos: 100 * i + 1, kind: 'list' }));
+    expect(rules(list)).not.toContain('staccato');
+  });
+
+  it('is quiet on the templates, the press release and easy-language news', async () => {
+    const { PRESS_DE, PLAIN_DE } = await import('./comprehensibility.fixtures');
+    expect(rules(blocks(PRESS_DE))).not.toContain('staccato');
+    expect(rules(blocks(PLAIN_DE))).not.toContain('staccato');
+  });
+});
+
 describe('rhythm', () => {
+  it('judges each block on its own and names it', async () => {
+    const { MONOTONE_DE, STACCATO_DE } = await import('./slop.fixtures');
+    const mixed: TextBlock[] = [
+      ...STACCATO_DE.split('\n').map((text, i) => ({ text, pos: 10 * i + 1, section: 'Einstieg' })),
+      { text: MONOTONE_DE, pos: 1000, section: 'Bericht' }
+    ];
+    expect(find(mixed, 'rhythm')!.detail).toMatch(/^Block „Bericht“: meist/);
+  });
+
+  it('flags machine-even prose: neighbours of nearly the same length', async () => {
+    const { MONOTONE_DE } = await import('./slop.fixtures');
+    expect(find(blocks(MONOTONE_DE), 'rhythm')!.detail).toMatch(/^meist \d+–\d+ Wörter pro Satz$/);
+  });
+
   it('flags many sentences of nearly the same length', () => {
     const same = Array.from({ length: 10 }, (_, i) => `Das ist Satz Nummer ${i} mit genau neun Wörtern hier.`);
     expect(find(blocks(same.join(' ')), 'rhythm')!.detail).toMatch(/Wörter pro Satz/);
@@ -126,5 +172,26 @@ describe('a typical machine-written text', () => {
     expect(slop.map((f) => f.rule)).toEqual(expect.arrayContaining(['phrase', 'closer', 'contrast', 'triad', 'dash', 'intensifier', 'rhetorical']));
     expect(slop.find((f) => f.rule === 'phrase')!.hits.length).toBeGreaterThanOrEqual(8);
     expect(findSlop(blocks(PRESS_DE), 'de')).toEqual([]);
+  });
+});
+
+describe('templates', () => {
+  // Blocks as the editor gives them, with headings and list items marked.
+  const templateBlocks = (html: string): TextBlock[] =>
+    [...html.matchAll(/<(h[1-6]|p)[^>]*>([\s\S]*?)<\/\1>/g)].map((m, i) => ({
+      text: m[2].replace(/<br>/g, '\n').replace(/<[^>]+>/g, '').replace(/[ \t\n]+/g, ' ').trim(),
+      pos: 1000 * i + 1,
+      kind: m[1].startsWith('h') ? 'heading' : /<li[^>]*>\s*$/.test(html.slice(0, m.index)) ? 'list' : 'text'
+    }));
+
+  it('have neither staccato nor monotonous rhythm', async () => {
+    const { DE } = await import('../editor/templates/de');
+    const { EN } = await import('../editor/templates/en');
+    for (const [lang, list] of [['de', DE], ['en', EN]] as const) {
+      for (const t of list.filter((t) => t.id !== 'blank')) {
+        expect(rules(templateBlocks(t.content), lang), `${lang} ${t.id}`).not.toEqual(expect.arrayContaining(['staccato']));
+        expect(rules(templateBlocks(t.content), lang), `${lang} ${t.id}`).not.toEqual(expect.arrayContaining(['rhythm']));
+      }
+    }
   });
 });

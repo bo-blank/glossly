@@ -5,6 +5,8 @@ import { editorStore } from './noteStore';
 import { tocStore } from './tocStore';
 import { blockPreview, blockText } from '../editor/blockDnd';
 import { countWords } from '../utils/readability';
+import { splitSentences, wordsOf } from '../utils/textUnits';
+import { blockTexts } from '../editor/blockText';
 
 export interface BlockInfo {
   index: number;
@@ -14,6 +16,8 @@ export interface BlockInfo {
   preview: string;
   /** The same count as the editor's word counter. */
   words: number;
+  /** Words per sentence, in order, headings left out: the block's rhythm. */
+  sentences: number[];
 }
 
 export interface BlocksState {
@@ -40,7 +44,10 @@ export const blocksStore = derived<[typeof editorStore, typeof tocStore], Blocks
       index,
       name: section.attrs.name,
       preview: blockPreview(section, OUTLINE_PREVIEW_WORDS),
-      words: countWords(blockText(section))
+      words: countWords(blockText(section)),
+      sentences: blockTexts(section, (node) => node.type.name !== 'heading').flatMap((b) =>
+        splitSentences(b.text).map((sentence) => wordsOf(sentence.text).length)
+      )
     });
   });
   return { blocks, current: selection.$from.index(0) };

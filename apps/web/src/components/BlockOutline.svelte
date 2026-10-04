@@ -12,6 +12,7 @@
   import { blockListKey, jumpToBlock, moveBlock } from '../editor/blockNav';
   import { renameSection, sectionStart, SECTION_NAME_MAX } from '../editor/section';
   import type { GuideNote } from '../editor/templates';
+  import { SLOP_LIMITS } from '../utils/slop';
 
   interface Props {
     /** The template's guide notes; empty without a template. */
@@ -23,10 +24,34 @@
   let { guide, showHints, language }: Props = $props();
 
   const T = {
-    de: { words: 'Wörter', rename: 'Umbenennen', name: 'Blockname', general: 'ganzer Text', move: 'Ziehen oder Alt+Shift+↑/↓ zum Verschieben' },
-    en: { words: 'words', rename: 'Rename', name: 'Block name', general: 'whole text', move: 'Drag or Alt+Shift+↑/↓ to move' }
+    de: {
+      words: 'Wörter',
+      rename: 'Umbenennen',
+      name: 'Blockname',
+      general: 'ganzer Text',
+      move: 'Ziehen oder Alt+Shift+↑/↓ zum Verschieben',
+      rhythm: 'Rhythmus: ein Balken pro Satz, Höhe = Länge. Blau: höchstens 4 Wörter, gelb: über 20.',
+      lengths: 'Satzlängen'
+    },
+    en: {
+      words: 'words',
+      rename: 'Rename',
+      name: 'Block name',
+      general: 'whole text',
+      move: 'Drag or Alt+Shift+↑/↓ to move',
+      rhythm: 'Rhythm: one bar per sentence, height = length. Blue: 4 words or fewer, yellow: over 20.',
+      lengths: 'Sentence lengths'
+    }
   };
   const t = $derived(T[language]);
+
+  // The rhythm strip: one bar per sentence, the height capped at 24 words —
+  // past that, all are simply long.
+  const BAR = 4;
+  const BAR_HEIGHT = 20;
+  const STACCATO_WORDS = SLOP_LIMITS.staccato.maxWords;
+  const LONG_SENTENCE_WORDS = 20;
+  const barHeight = (words: number) => Math.max(2.5, (Math.min(words, 24) / 24) * BAR_HEIGHT);
 
   const editor = $derived($editorStore.editor);
   const blocks = $derived($blocksStore.blocks);
@@ -189,6 +214,29 @@
           {/if}
           <span class="ol-words" title="{block.words} {t.words}">{block.words}</span>
         </div>
+        {#if block.sentences.length >= 2}
+          <!-- The block's rhythm at a glance: staccato is a comb of stubs, monotony a flat line. -->
+          <svg
+            class="ol-rhythm"
+            viewBox="0 0 {block.sentences.length * BAR} {BAR_HEIGHT}"
+            preserveAspectRatio="none"
+            style="width: {Math.min(block.sentences.length * BAR * 1.5, 180)}px"
+            role="img"
+            aria-label="{t.lengths}: {block.sentences.join(', ')}"
+          >
+            <title>{t.rhythm}</title>
+            {#each block.sentences as n, i}
+              <rect
+                x={i * BAR}
+                y={BAR_HEIGHT - barHeight(n)}
+                width={BAR - 1}
+                height={barHeight(n)}
+                class:short={n <= STACCATO_WORDS}
+                class:long={n > LONG_SENTENCE_WORDS}
+              />
+            {/each}
+          </svg>
+        {/if}
         {#if hint}<p class="ol-hint">{hint.hint}</p>{/if}
       </div>
     </li>
@@ -315,6 +363,24 @@
     border-bottom: 1px solid var(--gray-4);
     outline: none;
     padding: 0;
+  }
+
+  .ol-rhythm {
+    display: block;
+    height: 20px;
+    margin: 0.125rem 0 0.25rem;
+
+    rect {
+      fill: var(--gray-4);
+    }
+
+    rect.short {
+      fill: color-mix(in oklab, var(--color-primary) 70%, transparent);
+    }
+
+    rect.long {
+      fill: color-mix(in oklab, var(--color-warning) 85%, transparent);
+    }
   }
 
   .ol-hint {

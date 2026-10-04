@@ -64,8 +64,10 @@
   function treat(finding: SlopFinding, hit: SlopHit) {
     if (!editor) return;
     // The whole sentence, so the model can rebuild it rather than patch a phrase.
+    // A staccato run can span paragraphs; then the run itself is the selection.
     const sentence = expandToSentenceSelection(editor.state.doc, hit.from, hit.to);
-    const range = sentence && sentence.to - sentence.from <= MAX_SENTENCE_CHARS ? sentence : hit;
+    const covers = sentence && sentence.from <= hit.from && sentence.to >= hit.to;
+    const range = covers && sentence.to - sentence.from <= MAX_SENTENCE_CHARS ? sentence : hit;
     revealRange(editor, range.from, range.to);
     requestTreatment(instructionFor(finding.rule, hit.quote));
   }
