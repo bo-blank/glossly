@@ -33,7 +33,6 @@
   style="right: max(1rem, calc(50% - 320px - 16rem));"
   aria-label="Document stats"
 >
-  <StructureGuide variant="aside" />
   <div>
     <h3 class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-1.5">Stats</h3>
     <div class="flex flex-col gap-0.5 opacity-90">
@@ -61,6 +60,9 @@
       <div class="badge badge-sm badge-outline mt-1.5">{$dashboardStore.readabilityLabel}</div>
     {/if}
   </div>
+
+  <!-- Below stats and readability, so a long outline never pushes them out of view. -->
+  <StructureGuide variant="aside" />
 
   <div>
     <h3 class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-1.5">AI likeness</h3>
