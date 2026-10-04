@@ -114,23 +114,23 @@ export const DE: TemplateText[] = [
     content: `
       <section data-block="Die ersten zwei Zeilen">
         <p>Drei Jahre lang habe ich das auf die harte Tour gemacht. Das hier würde ich meinem früheren Ich am ersten Tag sagen.</p>
-        <p>Kurzfassung: Das, was alle für den schwierigen Teil halten, ist nicht der schwierige Teil.</p>
+        <p>Kurzfassung: Der schwierige Teil liegt woanders, als alle denken.</p>
       </section>
       <section data-block="Geschichte">
-        <p>Etwas Kontext. Am Anfang dachte ich, uns fehlt es an Einsatz. Tat es nicht. Es hatte nur nie jemand aufgeschrieben, wie „fertig“ aussieht – also begann mit jeder Runde dieselbe Diskussion von vorn.</p>
+        <p>Etwas Kontext: Am Anfang dachte ich, uns fehlt es an Einsatz. Dabei hatte nur nie jemand aufgeschrieben, wie „fertig“ aussieht. Also begann mit jeder Runde dieselbe Diskussion von vorn.</p>
       </section>
       <section data-block="Erkenntnis">
         <p>Als wir das geändert hatten, passierten drei Dinge:</p>
         <ul>
           <li><p>Entscheidungen dauerten Stunden statt Wochen, weil die Kriterien auf dem Tisch lagen.</p></li>
-          <li><p>Feedback wurde konkret – man stritt über den Maßstab, nicht miteinander.</p></li>
+          <li><p>Feedback wurde konkret. Man stritt über den Maßstab statt miteinander.</p></li>
           <li><p>Die Arbeit wurde kleiner und damit endlich abschließbar.</p></li>
         </ul>
-        <p>Nichts davon ist clever. Es ist nur aufgeschrieben, und genau das ist erstaunlich selten.</p>
+        <p>Clever ist daran wenig. Es steht einfach irgendwo geschrieben, und das findet man erstaunlich selten.</p>
         <p>Falls du gerade mittendrin steckst: Schreib zuerst auf, was „fertig“ heißt. Alles danach wird leichter.</p>
       </section>
       <section data-block="Frage">
-        <p>Was hätte dir jemand früher aufschreiben sollen – und was schreibst du heute für andere auf?</p>
+        <p>Was hätte dir jemand früher aufschreiben sollen? Und was schreibst du heute für andere auf?</p>
         <p>#schreiben #zusammenarbeit #lernen</p>
       </section>
     `,
@@ -239,23 +239,23 @@ export const DE: TemplateText[] = [
     blurb: 'Einstieg, ein großes Thema, Links, Gruß.',
     content: `
       <section data-block="Betreff">
-        <h1>Ausgabe 12 – Das Meeting, das sich selbst geschrieben hat</h1>
+        <h1>Ausgabe 12: Das Meeting, das sich selbst geschrieben hat</h1>
       </section>
       <section data-block="Einstieg">
         <p>Hallo zusammen,</p>
-        <p>diese Woche saß ich in einer Besprechung, deren Protokoll schon fertig war, bevor sie anfing. Klingt nach Bürokratie, war aber das Gegenteil, und genau darum geht es heute.</p>
+        <p>diese Woche saß ich in einer Besprechung, deren Protokoll schon fertig war, bevor sie anfing. Das klingt nach Bürokratie, war aber das Gegenteil. Darum geht es heute.</p>
       </section>
       <section data-block="Das eine große Thema">
         <h2>Das eine große Thema</h2>
-        <p>Unsere Projektrunde dauerte früher eine Stunde und erzeugte ein Protokoll, das niemand las. Vor drei Wochen haben wir etwas Kleines ausprobiert. Vor jeder Runde stehen die erwarteten Beschlüsse schon im Protokoll. Das Treffen ist nur noch dazu da, sie zu ändern. Letzten Dienstag hat es zwanzig Minuten gedauert. Zwei der fünf erwarteten Beschlüsse haben sich geändert. Genau darum geht es: Wir stritten mit einem Entwurf statt mit einem leeren Blatt.</p>
+        <p>Unsere Projektrunde dauerte früher eine Stunde und erzeugte ein Protokoll, das niemand las. Vor drei Wochen haben wir etwas Kleines ausprobiert. Vor jeder Runde stehen die erwarteten Beschlüsse schon im Protokoll. Das Treffen ist nur noch dazu da, sie zu ändern. Letzten Dienstag hat es zwanzig Minuten gedauert. Zwei der fünf erwarteten Beschlüsse haben sich geändert. Das war der Unterschied: Wir stritten mit einem Entwurf statt mit einem leeren Blatt.</p>
         <p>Ich glaube nicht, dass das für jede Besprechung funktioniert. Für die, die immer wieder mit derselben Tagesordnung kommen, aber schon. Bei mir sind das die meisten.</p>
       </section>
       <section data-block="Lohnt sich">
         <h2>Lohnt sich</h2>
         <ul>
-          <li><p><strong>Ein Essay über schlechte erste Entwürfe</strong> – das beste Argument, das ich kenne, um Schreiben und Beurteilen zu trennen.</p></li>
-          <li><p><strong>Eine Anleitung zum Archivieren alter Webseiten</strong> – trocken, hat uns aber einen Monat gespart.</p></li>
-          <li><p><strong>Eine Kurzgeschichte über einen gestrichenen Zug.</strong> Sie hat nichts mit Arbeit zu tun, und genau deshalb steht sie hier.</p></li>
+          <li><p><strong>Ein Essay über schlechte erste Entwürfe</strong>: das beste Argument, das ich kenne, um Schreiben und Beurteilen zu trennen.</p></li>
+          <li><p><strong>Eine Anleitung zum Archivieren alter Webseiten</strong>: trocken, hat uns aber einen Monat gespart.</p></li>
+          <li><p><strong>Eine Kurzgeschichte über einen gestrichenen Zug.</strong> Mit Arbeit hat sie nichts zu tun, und deshalb steht sie hier.</p></li>
         </ul>
       </section>
       <section data-block="Eine Kleinigkeit">
