@@ -1,8 +1,14 @@
 import type { NodeViewRenderer } from '@tiptap/core';
-import { Selection } from 'prosemirror-state';
+import { NodeSelection, Selection } from 'prosemirror-state';
 import { renameSection, SECTION_NAME_MAX } from './section';
 
 const NAME_THIS = 'Name this block';
+
+// Six dots, drawn rather than typed: the ⠿ glyph renders too thin to find.
+const GRIP =
+  '<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">' +
+  [3, 8, 13].map((y) => `<circle cx="2.5" cy="${y}" r="1.5"/><circle cx="7.5" cy="${y}" r="1.5"/>`).join('') +
+  '</svg>';
 
 /**
  * A block in the editor: its name in a small grey line above the text, and
@@ -25,9 +31,52 @@ export const sectionView: NodeViewRenderer = ({ node: initial, getPos, editor })
   button.className = 'glossly-block-name';
   label.append(button);
 
+  // Mouse only: the keyboard moves blocks with Alt+Shift+↑/↓.
+  const handle = document.createElement('div');
+  handle.className = 'glossly-block-handle';
+  handle.contentEditable = 'false';
+  handle.draggable = true;
+  handle.dataset.dragHandle = '';
+  handle.innerHTML = GRIP;
+  handle.title = 'Drag to move this block (Alt+Shift+↑/↓)';
+  handle.setAttribute('aria-hidden', 'true');
+
   const contentDOM = document.createElement('div');
   contentDOM.className = 'glossly-block-content';
-  dom.append(label, contentDOM);
+  dom.append(handle, label, contentDOM);
+
+  let dragging: typeof editor.view.dragging = null;
+  // The drag is started here rather than by ProseMirror, which would drag an
+  // existing text selection instead of the block when one lies under the
+  // pointer. The drop is handled by moveSection (section.ts).
+  handle.addEventListener('dragstart', (e) => {
+    const pos = getPos();
+    const { view } = editor;
+    if (typeof pos !== 'number' || !e.dataTransfer || !editor.isEditable) {
+      e.preventDefault();
+      return;
+    }
+    const selection = NodeSelection.create(view.state.doc, pos);
+    const slice = selection.content();
+    const { dom: html, text } = view.serializeForClipboard(slice);
+    e.dataTransfer.clearData();
+    e.dataTransfer.setData('text/html', html.innerHTML);
+    e.dataTransfer.setData('text/plain', text);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setDragImage(dom, 0, 0);
+    // `node` is what ProseMirror's own drags carry too; sectionDrop reads it.
+    dragging = Object.assign({ slice, move: true }, { node: selection });
+    view.dragging = dragging;
+    dom.classList.add('is-dragging');
+  });
+  handle.addEventListener('dragend', () => {
+    dom.classList.remove('is-dragging');
+    // A drop in the editor clears it; one outside (or Escape) does not.
+    const ended = dragging;
+    setTimeout(() => {
+      if (editor.view.dragging === ended) editor.view.dragging = null;
+    }, 50);
+  });
 
   let input: HTMLInputElement | null = null;
 
@@ -91,6 +140,8 @@ export const sectionView: NodeViewRenderer = ({ node: initial, getPos, editor })
     startEditing();
   });
 
+  const isUI = (target: globalThis.Node) => label.contains(target) || handle.contains(target);
+
   render();
 
   return {
@@ -106,8 +157,8 @@ export const sectionView: NodeViewRenderer = ({ node: initial, getPos, editor })
     // events nor treat its changes as edits. That includes the state classes
     // on the block itself — any other mutation of it makes ProseMirror rebuild
     // the view, which would throw away an open name input.
-    stopEvent: (event) => label.contains(event.target as globalThis.Node),
+    stopEvent: (event) => isUI(event.target as globalThis.Node),
     ignoreMutation: (mutation) =>
-      label.contains(mutation.target) || (mutation.type === 'attributes' && mutation.target === dom && mutation.attributeName === 'class')
+      isUI(mutation.target) || (mutation.type === 'attributes' && mutation.target === dom && mutation.attributeName === 'class')
   };
 };

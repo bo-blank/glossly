@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { fromMarkdown, toMarkdown } from './markdown';
 import { emptyParagraphPos } from './emptyPlaceholder';
 import { EditorState, TextSelection, type Command } from 'prosemirror-state';
-import { hasSectionMarkup, joinSectionBackward, joinSectionForward, regroupSections, renameSection, splitSection } from './section';
+import { history, undo } from 'prosemirror-history';
+import { hasSectionMarkup, joinSectionBackward, joinSectionForward, moveSection, moveSectionBy, regroupSections, sectionMoves, renameSection, sectionDropTarget, splitSection } from './section';
 import { schemaExtensions } from './schemaExtensions';
 
 const schema = getSchema(schemaExtensions);
@@ -226,5 +227,107 @@ describe('renameSection', () => {
     const state = EditorState.create({ doc: docOf(sec('A', p('x'))) });
     expect(run(renameSection(0, 'A'), state)).toBeNull();
     expect(run(renameSection(1, 'B'), state)).toBeNull();
+  });
+});
+
+describe('moveSection (WP4)', () => {
+  const three = () => docOf(sec('A', p('eins')), sec('B', p('zwei'), p('mehr')), sec('C', p('drei')));
+  const order = (doc: PMNode) => named(doc).map((n) => n.split('|')[0]);
+  const withHistory = (state: EditorState) =>
+    EditorState.create({ doc: state.doc, selection: state.selection, plugins: [history(), sectionMoves] });
+
+  it('moves the first, a middle and the last block', () => {
+    const state = EditorState.create({ doc: three() });
+    expect(order(run(moveSection(0, 2), state)!.doc)).toEqual(['B', 'C', 'A']);
+    expect(order(run(moveSection(1, 0), state)!.doc)).toEqual(['B', 'A', 'C']);
+    expect(order(run(moveSection(2, 0), state)!.doc)).toEqual(['C', 'A', 'B']);
+  });
+
+  it('does nothing onto itself or past the ends', () => {
+    const state = EditorState.create({ doc: three() });
+    expect(run(moveSection(1, 1), state)).toBeNull();
+    expect(run(moveSection(0, 3), state)).toBeNull();
+    expect(run(moveSection(-1, 0), state)).toBeNull();
+  });
+
+  it('takes the cursor along, at the same place in the text', () => {
+    const next = run(moveSection(1, 2), stateAt(three(), 'ehr'))!;
+    expect(order(next.doc)).toEqual(['A', 'C', 'B']);
+    expect(next.selection.empty).toBe(true);
+    expect(next.selection.$from.index(0)).toBe(2);
+    expect(next.selection.$from.parent.textContent.slice(next.selection.$from.parentOffset)).toBe('ehr');
+  });
+
+  it('collapses a selection inside the moved block, so the margin note closes', () => {
+    const state = stateAt(three(), 'zwei');
+    const selected = state.apply(state.tr.setSelection(TextSelection.create(state.doc, state.selection.from, state.selection.from + 4)));
+    const next = run(moveSection(1, 0), selected)!;
+    expect(next.selection.empty).toBe(true);
+    expect(next.selection.$from.parent.textContent.slice(next.selection.$from.parentOffset)).toBe('');
+  });
+
+  it('keeps a cursor in another block where it was', () => {
+    const next = run(moveSection(1, 0), stateAt(three(), 'drei'))!;
+    expect(next.selection.$from.index(0)).toBe(2);
+    expect(next.selection.$from.parent.textContent).toBe('drei');
+  });
+
+  it('Alt+Shift+↑/↓ moves the block holding the cursor by one, nothing at the ends', () => {
+    expect(order(run(moveSectionBy(1), stateAt(three(), 'zwei'))!.doc)).toEqual(['A', 'C', 'B']);
+    expect(order(run(moveSectionBy(-1), stateAt(three(), 'zwei'))!.doc)).toEqual(['B', 'A', 'C']);
+    expect(run(moveSectionBy(-1), stateAt(three(), 'eins'))).toBeNull();
+    expect(run(moveSectionBy(1), stateAt(three(), 'drei'))).toBeNull();
+  });
+
+  it('one undo restores the document and the cursor exactly — also for two quick moves', () => {
+    const start = withHistory(stateAt(three(), 'ehr'));
+    const once = run(moveSectionBy(1), start)!;
+    const twice = run(moveSectionBy(-1), run(moveSectionBy(-1), once)!)!;
+    expect(order(twice.doc)).toEqual(['B', 'A', 'C']);
+    const back = run(undo, twice)!;
+    expect(order(back.doc)).toEqual(['A', 'B', 'C']);
+    const backAgain = run(undo, run(undo, back)!)!;
+    expect(backAgain.doc.eq(start.doc)).toBe(true);
+    expect(backAgain.selection.eq(start.selection)).toBe(true);
+  });
+
+  it('typing right after a move is its own undo step', () => {
+    const moved = run(moveSectionBy(1), withHistory(stateAt(three(), 'ehr')))!;
+    const typed = moved.apply(moved.tr.insertText('X'));
+    const back = run(undo, typed)!;
+    expect(order(back.doc)).toEqual(['A', 'C', 'B']);
+    expect(back.doc.eq(moved.doc)).toBe(true);
+  });
+
+  it('leaves the text and names alone', () => {
+    const doc = three();
+    const next = run(moveSection(0, 2), EditorState.create({ doc }))!.doc;
+    expect(named(next).sort()).toEqual(named(doc).sort());
+  });
+});
+
+describe('sectionDropTarget (drag handle)', () => {
+  const doc = docOf(sec('A', p('eins'), p('noch')), sec('B', p('zwei')), sec('C', p('drei'), p('ende')));
+  const posOf = (text: string) => stateAt(doc, text).selection.from;
+
+  it('snaps a drop inside a paragraph to the nearest gap between blocks', () => {
+    // Upper half of block A → before A; lower half → after A.
+    expect(sectionDropTarget(doc, 2, posOf('eins'))).toBe(0);
+    expect(sectionDropTarget(doc, 2, posOf('noch'))).toBe(1);
+  });
+
+  it('drops the last block above the first', () => {
+    expect(sectionDropTarget(doc, 2, 0)).toBe(0);
+  });
+
+  it('is a no-op onto itself or the gaps right around it', () => {
+    expect(sectionDropTarget(doc, 1, posOf('zwei'))).toBe(1);
+    expect(sectionDropTarget(doc, 1, doc.child(0).nodeSize)).toBe(1);
+    expect(sectionDropTarget(doc, 1, doc.child(0).nodeSize + doc.child(1).nodeSize)).toBe(1);
+  });
+
+  it('moves the first block to the end', () => {
+    expect(sectionDropTarget(doc, 0, doc.content.size)).toBe(2);
+    expect(sectionDropTarget(doc, 0, posOf('ende'))).toBe(2);
   });
 });

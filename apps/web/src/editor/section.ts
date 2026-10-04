@@ -1,6 +1,8 @@
 import { createDocument, Node, type JSONContent } from '@tiptap/core';
-import type { Node as PMNode, Schema } from 'prosemirror-model';
-import type { Command } from 'prosemirror-state';
+import { Fragment, Slice, type Node as PMNode, type Schema } from 'prosemirror-model';
+import { NodeSelection, Plugin, Selection, TextSelection, type Command } from 'prosemirror-state';
+import { closeHistory } from 'prosemirror-history';
+import { dropPoint } from 'prosemirror-transform';
 import { sectionView } from './sectionView';
 
 // Phase 5: the document is made of blocks, one per unit of meaning. A block is
@@ -49,8 +51,15 @@ export const Section = Node.create({
     return {
       'Mod-Shift-Enter': run(splitSection),
       Backspace: run(joinSectionBackward),
-      Delete: run(joinSectionForward)
+      Delete: run(joinSectionForward),
+      // Swallowed at the ends too, so the browser does not extend the selection instead.
+      'Alt-Shift-ArrowUp': () => (run(moveSectionBy(-1))(), true),
+      'Alt-Shift-ArrowDown': () => (run(moveSectionBy(1))(), true)
     };
+  },
+
+  addProseMirrorPlugins() {
+    return [sectionMoves];
   }
 });
 
@@ -125,6 +134,95 @@ export function renameSection(pos: number, name: string): Command {
     return true;
   };
 }
+
+/**
+ * Moves the block at index `from` so it ends up at index `to`. One transaction
+ * and its own undo step, even right after typing or another move. A cursor or
+ * selection inside the block travels with it; a selection collapses to its
+ * head, which closes the margin note (ground rule 4). Shared by every way of
+ * moving a block: keyboard, drag handle, outline, table of contents.
+ */
+export function moveSection(from: number, to: number): Command {
+  return (state, dispatch) => {
+    const { doc } = state;
+    if (from === to || from < 0 || to < 0 || from >= doc.childCount || to >= doc.childCount) return false;
+    if (!dispatch) return true;
+    const node = doc.child(from);
+    const start = sectionStart(doc, from);
+    const tr = state.tr.delete(start, start + node.nodeSize);
+    const target = sectionStart(tr.doc, to);
+    tr.insert(target, node);
+
+    const { selection } = state;
+    const inside = selection.from >= start && selection.to <= start + node.nodeSize;
+    if (inside && !(selection instanceof NodeSelection)) {
+      const head = selection.head - start + target;
+      tr.setSelection(TextSelection.create(tr.doc, head));
+    } else if (inside) {
+      tr.setSelection(Selection.near(tr.doc.resolve(target + 1)));
+    }
+    dispatch(closeHistory(tr).setMeta(SECTION_MOVE, true).scrollIntoView());
+    return true;
+  };
+}
+
+const SECTION_MOVE = 'glosslySectionMove';
+
+/** Moves the block holding the cursor one place up (-1) or down (+1). */
+export function moveSectionBy(delta: -1 | 1): Command {
+  return (state, dispatch) => {
+    const index = state.selection.$from.index(0);
+    return moveSection(index, index + delta)(state, dispatch);
+  };
+}
+
+function sectionStart(doc: PMNode, index: number): number {
+  let pos = 0;
+  for (let i = 0; i < index; i++) pos += doc.child(i).nodeSize;
+  return pos;
+}
+
+/**
+ * Where a dragged block would land: the index it ends up at, or null when the
+ * drop is not a block move. Uses the same dropPoint as ProseMirror's drop
+ * cursor, so the line the writer sees is where the block goes — a drop inside
+ * a paragraph snaps to the nearest gap between blocks.
+ */
+export function sectionDropTarget(doc: PMNode, from: number, mousePos: number): number | null {
+  const node = doc.child(from);
+  const point = dropPoint(doc, mousePos, new Slice(Fragment.from(node), 0, 0));
+  if (point === null) return null;
+  const $point = doc.resolve(point);
+  if ($point.depth !== 0) return null;
+  const gap = $point.index(0);
+  return gap > from ? gap - 1 : gap;
+}
+
+/**
+ * Block moves in the editor. Drops of a block dragged by its handle go through
+ * moveSection instead of ProseMirror's generic delete-and-insert, so they
+ * behave like the keyboard move — including dropping a block onto itself,
+ * which changes nothing.
+ */
+export const sectionMoves = new Plugin({
+  // The moved block is one big inserted range, so typing in it right after the
+  // move would count as "adjacent" and join the move's undo step. A step-less
+  // transaction that closes the history makes the next edit its own step.
+  appendTransaction: (transactions, _old, state) =>
+    transactions.some((tr) => tr.getMeta(SECTION_MOVE)) ? closeHistory(state.tr) : null,
+  props: {
+    handleDrop(view, event, _slice, moved) {
+      const dragged = (view.dragging as { node?: NodeSelection } | null)?.node;
+      if (!moved || !(dragged instanceof NodeSelection) || dragged.node.type.name !== 'section') return false;
+      const from = view.state.doc.resolve(dragged.from).index(0);
+      const mouse = view.posAtCoords({ left: event.clientX, top: event.clientY });
+      const to = mouse ? sectionDropTarget(view.state.doc, from, mouse.pos) : null;
+      if (to !== null) moveSection(from, to)(view.state, view.dispatch);
+      view.focus();
+      return true;
+    }
+  }
+});
 
 export const SECTION_NAME_MAX = 60;
 
