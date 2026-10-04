@@ -103,7 +103,7 @@ WP1 Section node + migration ──> WP2 Markdown round-trip
                              ──> WP4 Move: keyboard + drag handle ──> WP5 Outline in structure card
                                                                     ──> WP5b Move in the table of contents
                              ──> WP6 Templates as blocks (texts to the writer first)
-WP7 Block name in the prompt     (optional, only if the bench shows an effect)
+WP7 Block name in the prompt     (benched 2026-10-04: no effect → dropped)
 ```
 
 ---
@@ -374,6 +374,28 @@ validated on the server) **only if** a bench run with e2b shows a visible
 difference. Use the existing bench with cases where the same sentence sits in
 differently named blocks. Without a measurable effect, write down the result
 and drop the WP.
+
+**Result 2026-10-04: no effect, WP dropped.** `bench-blockname` (e2b, 20
+rounds, 6 cases DE/EN): the same sentence with the same neighbours, sent
+without a name (twice, the noise floor), with the fitting name, and with the
+fitting and a contrasting name in a wording that says what the block is for
+("the alternatives should do what a "Fazit" does").
+
+| config | fitting-role marker | contrasting-role marker |
+| --- | --- | --- |
+| no name | 1 % | 2 % |
+| no name, again | 1 % | 3 % |
+| fitting name | 1 % | 3 % |
+| fitting, explained | 1 % | 4 % |
+| contrasting, explained | 1 % | 3 % |
+
+Word drift from the no-name answers stays within the noise floor
+(0.14–0.31 vs 0.11–0.23), the name never leaks into the text. Read side by
+side, a "Hook" stays "Meine Kündigung erfolgte letzte Woche", a "Call to
+action" only adds "Please note that …". e2b rewrites the sentence and ignores
+what the part of the text is for; the neighbouring sentences already carry
+what it can use. Revisit with a larger model or for a block-level feature
+(the structure check under *Later*), not for phrase suggestions.
 
 ---
 
