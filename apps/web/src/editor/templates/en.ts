@@ -238,7 +238,7 @@ export const EN: TemplateText[] = [
     blurb: 'Intro, one big thing, links, sign-off.',
     content: `
       <section data-block="Subject">
-        <h1>Issue 12 — The meeting that wrote itself</h1>
+        <h1>Issue 12: The meeting that wrote itself</h1>
       </section>
       <section data-block="Intro">
         <p>Hello again,</p>
@@ -246,14 +246,14 @@ export const EN: TemplateText[] = [
       </section>
       <section data-block="The one big thing">
         <h2>The one big thing</h2>
-        <p>Our project sync used to run for an hour and produce notes nobody read. Three weeks ago we tried something small. Before each sync, the decisions we expect are already in the notes. The meeting only exists to change them. Last Tuesday it took twenty minutes. Two of the five expected decisions changed, which is exactly the point. We argued with a draft instead of with a blank page.</p>
+        <p>Our project sync used to run for an hour and produce notes nobody read. Three weeks ago we tried something small. Before each sync, the decisions we expect are already in the notes. The meeting only exists to change them. Last Tuesday it took twenty minutes. Two of the five expected decisions changed. That was the difference: we argued with a draft instead of with a blank page.</p>
         <p>I don't think this works for every meeting. It does work for the ones that keep coming back with the same agenda. For me, that is most of them.</p>
       </section>
       <section data-block="Worth your time">
         <h2>Worth your time</h2>
         <ul>
-          <li><p><strong>An essay on bad first drafts</strong> — the best argument I know for separating writing from judging.</p></li>
-          <li><p><strong>A guide to archiving old pages</strong> — dry, but it saved us a month.</p></li>
+          <li><p><strong>An essay on bad first drafts</strong>: the best argument I know for separating writing from judging.</p></li>
+          <li><p><strong>A guide to archiving old pages</strong>: dry, but it saved us a month.</p></li>
           <li><p><strong>A short story about a cancelled train.</strong> Nothing to do with work, which is why it is here.</p></li>
         </ul>
       </section>
@@ -262,7 +262,7 @@ export const EN: TemplateText[] = [
         <p>Write the subject line of an e-mail last. Naming something is much easier once you know what it says.</p>
       </section>
       <section data-block="Sign-off">
-        <p>That is everything for this week. Reply and tell me what you disagreed with — I read all of them.</p>
+        <p>That is everything for this week. Reply and tell me what you disagreed with. I read all of them.</p>
         <p>Until next time,<br>Alex</p>
       </section>
     `,
@@ -319,7 +319,7 @@ export const EN: TemplateText[] = [
         <p>"We could take a taxi," he said.</p>
         <p>"To where?"</p>
         <p>He didn't answer. Somewhere behind them a vending machine hummed and went quiet. A pigeon walked the length of the yellow line, inspected a crumb, and decided against it.</p>
-        <p>"You never told your sister," Lena said. It was not a question, and he didn't treat it as one. He took his hands out of his pockets, looked at them, and put them back.</p>
+        <p>"You never told your sister," Lena said, flatly. He let it stand. He took his hands out of his pockets, looked at them, and put them back.</p>
         <p>"I was going to. Tonight. At dinner."</p>
         <p>"And now there is no dinner."</p>
         <p>"Now there is no train." He almost smiled. "It feels like a sign."</p>
