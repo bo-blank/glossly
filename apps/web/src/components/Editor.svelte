@@ -3,7 +3,7 @@
 
   import { get } from 'svelte/store';
   import { schemaExtensions } from '../editor/schemaExtensions';
-  import { sectionedContent } from '../editor/section';
+  import { sectionedContent, splitSection } from '../editor/section';
   import { Selection, CharacterCount } from '@tiptap/extensions';
   import { EmptyPlaceholder } from '../editor/emptyPlaceholder';
   import { TableOfContents, getHierarchicalIndexes } from '@tiptap/extension-table-of-contents';
@@ -536,6 +536,18 @@
           title="Code block"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 3 12 8 18"/><polyline points="16 6 21 12 16 18"/></svg>
+        </button>
+        <button
+          onclick={() => {
+            splitSection(editor.state, editor.view.dispatch);
+            editor.view.focus();
+          }}
+          disabled={!splitSection(live().state)}
+          class={btnClass(false, !splitSection(live().state))}
+          title="New block from the cursor (⌘⇧↵)"
+          aria-label="New block from the cursor"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="7" rx="1.5"/><rect x="4" y="14" width="16" height="7" rx="1.5"/></svg>
         </button>
       </div>
 

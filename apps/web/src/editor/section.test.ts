@@ -5,7 +5,7 @@ import { fromMarkdown, toMarkdown } from './markdown';
 import { emptyParagraphPos } from './emptyPlaceholder';
 import { EditorState, TextSelection, type Command } from 'prosemirror-state';
 import { history, undo } from 'prosemirror-history';
-import { hasSectionMarkup, joinSectionBackward, joinSectionForward, moveSection, moveSectionBy, regroupSections, sectionMoves, renameSection, sectionDropTarget, splitSection } from './section';
+import { hasSectionMarkup, insertSectionAfter, joinSectionBackward, joinSectionForward, moveSection, moveSectionBy, regroupSections, sectionMoves, renameSection, sectionDropTarget, splitSection } from './section';
 import { schemaExtensions } from './schemaExtensions';
 
 const schema = getSchema(schemaExtensions);
@@ -329,5 +329,25 @@ describe('sectionDropTarget (drag handle)', () => {
   it('moves the first block to the end', () => {
     expect(sectionDropTarget(doc, 0, doc.content.size)).toBe(2);
     expect(sectionDropTarget(doc, 0, posOf('ende'))).toBe(2);
+  });
+});
+
+describe('insertSectionAfter (New block button in the table of contents)', () => {
+  it('adds an empty block after the one holding the cursor and puts the cursor in it', () => {
+    const doc = docOf(sec('A', p('eins'), p('zwei')), sec('B', p('drei')));
+    const next = run(insertSectionAfter, stateAt(doc, 'eins'))!;
+    expect(named(next.doc)).toEqual(['A|eins / zwei', '|', 'B|drei']);
+    expect(next.selection.$from.index(0)).toBe(1);
+    expect(next.selection.$from.parent.type.name).toBe('paragraph');
+  });
+
+  it('adds it at the end after the last block', () => {
+    const next = run(insertSectionAfter, stateAt(docOf(sec('', p('eins'))), 'eins'))!;
+    expect(named(next.doc)).toEqual(['|eins', '|']);
+  });
+
+  it('keeps an empty block through Markdown only once it has text', () => {
+    const doc = run(insertSectionAfter, stateAt(docOf(sec('', p('eins'))), 'eins'))!.doc;
+    expect(split(fromMarkdown(toMarkdown(doc), schema))).toEqual([['eins']]);
   });
 });

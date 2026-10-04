@@ -5,7 +5,7 @@
   import { tocStore } from '../stores/tocStore';
   import { editorStore } from '../stores/noteStore';
   import { gapAt, gapToIndex, groupByBlock } from '../editor/blockDnd';
-  import { moveSection, sectionStart } from '../editor/section';
+  import { insertSectionAfter, moveSection, sectionStart } from '../editor/section';
 
   // Entries are grouped by block: dragging any entry, or the group's handle,
   // moves the whole block. A heading never moves on its own.
@@ -13,8 +13,8 @@
   const editor = $derived($editorStore.editor);
   // The extension reports on every document change, so this follows moves and typing.
   const groups = $derived(editor ? groupByBlock(editor.state.doc, $tocStore) : []);
-  // One block without headings has nothing to navigate or reorder.
-  const visible = $derived($tocStore.length > 0 || groups.length > 1);
+  // Always there with a document: it also holds the New block button.
+  const visible = $derived(groups.length > 0);
 
   /** @type {HTMLElement[]} */
   const groupEls = [];
@@ -30,6 +30,12 @@
     const { doc } = editor.state;
     const at = Selection.near(doc.resolve(sectionStart(doc, index) + 1)).from;
     editor.chain().focus().setTextSelection(at).scrollIntoView().run();
+  }
+
+  function newBlock() {
+    if (!editor) return;
+    insertSectionAfter(editor.state, editor.view.dispatch);
+    editor.view.focus();
   }
 
   function move(from, to) {
@@ -147,6 +153,10 @@
         </li>
       {/each}
     </ul>
+    <button class="toc-new" onclick={newBlock} title="New empty block after the one with the cursor">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+      New block
+    </button>
   </nav>
 {/if}
 
@@ -203,6 +213,27 @@
     &.is-active {
       background-color: var(--gray-3);
       font-weight: 500;
+    }
+  }
+
+  .toc-new {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin: 0.75rem 0 0 0.875rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    color: var(--gray-5);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--gray-2);
+      color: inherit;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: -2px;
     }
   }
 

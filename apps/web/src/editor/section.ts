@@ -84,6 +84,22 @@ export const splitSection: Command = (state, dispatch) => {
   return true;
 };
 
+/**
+ * An empty block right after the one holding the cursor, with the cursor in
+ * it. For places that have no cursor position to split at, like the table of
+ * contents.
+ */
+export const insertSectionAfter: Command = (state, dispatch) => {
+  const { doc, schema } = state;
+  const index = state.selection.$from.index(0);
+  if (dispatch) {
+    const at = sectionStart(doc, index) + doc.child(index).nodeSize;
+    const tr = state.tr.insert(at, schema.nodes.section.create(null, schema.nodes.paragraph.create()));
+    dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 2)).scrollIntoView());
+  }
+  return true;
+};
+
 /** Whether the cursor sits at the very start (or end) of its block's text. */
 function atSectionEdge(state: Parameters<Command>[0], side: 'start' | 'end'): number | null {
   const { $from, empty } = state.selection;
