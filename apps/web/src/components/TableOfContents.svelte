@@ -1,6 +1,6 @@
 <!-- components/TableOfContents.svelte -->
 <script>
-  import { tick } from 'svelte';
+  import { flushSync } from 'svelte';
   import { Selection } from 'prosemirror-state';
   import { tocStore } from '../stores/tocStore';
   import { editorStore } from '../stores/noteStore';
@@ -13,6 +13,20 @@
   const editor = $derived($editorStore.editor);
   // The extension reports on every document change, so this follows moves and typing.
   const groups = $derived(editor ? groupByBlock(editor.state.doc, $tocStore) : []);
+  // Where the writer is: the block holding the cursor, and in it the last
+  // heading at or before the cursor. The extension's own isActive follows the
+  // scroll position instead, which never changes in a document that fits on screen.
+  // $editorStore is set on every selection change, $tocStore on every edit.
+  const cursor = $derived.by(() => {
+    $tocStore;
+    if (!editor || !$editorStore.selection) return { block: -1, heading: null };
+    const from = editor.state.selection.$from;
+    const block = from.index(0);
+    const group = groups[block];
+    const heading = group?.headings.filter((item) => item.pos <= from.pos).at(-1)?.id ?? null;
+    return { block, heading };
+  });
+
   // Always there with a document: it also holds the New block button.
   const visible = $derived(groups.length > 0);
 
@@ -42,21 +56,27 @@
     return !!editor && moveSection(from, to)(editor.state, editor.view.dispatch);
   }
 
-  async function onEntryKeydown(e, index) {
+  // Render now and put focus on the block's entry before the next key arrives:
+  // the focused entry may have been replaced by the change, and focus left on
+  // the page would swallow the next Alt+Shift+arrow or Ctrl+Z.
+  function focusGroup(index) {
+    flushSync();
+    groupEls[Math.min(index, groups.length - 1)]?.querySelector('button')?.focus();
+  }
+
+  function onEntryKeydown(e, index) {
     const mod = e.ctrlKey || e.metaKey;
+    const key = e.key.toLowerCase();
     if (e.altKey && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
       const to = index + (e.key === 'ArrowUp' ? -1 : 1);
-      if (!move(index, to)) return;
-      await tick();
-      groupEls[to]?.querySelector('button')?.focus();
-    } else if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+      if (move(index, to)) focusGroup(to);
+    } else if (mod && (key === 'y' || key === 'z')) {
       // Undo and redo work from here too, so a move made here can be taken back here.
       e.preventDefault();
-      editor?.commands.redo();
-    } else if (mod && e.key.toLowerCase() === 'z') {
-      e.preventDefault();
-      editor?.commands.undo();
+      if (key === 'y' || e.shiftKey) editor?.commands.redo();
+      else editor?.commands.undo();
+      focusGroup(index);
     }
   }
 
@@ -112,6 +132,7 @@
       {#each groups as group (group.index)}
         <li
           class="toc-block"
+          class:is-current={cursor.block === group.index}
           class:drop-above={dropGap === group.index}
           class:drop-below={dropGap === groups.length && group.index === groups.length - 1}
           class:is-dragging={dragFrom === group.index}
@@ -126,12 +147,12 @@
               {#each [3, 8, 13] as y}<circle cx="2.5" cy={y} r="1.5" /><circle cx="7.5" cy={y} r="1.5" />{/each}
             </svg>
           </span>
-          <div class="min-w-0 flex-1">
+          <div class="toc-entries">
             {#each group.headings as item (item.id)}
               <button
                 class="toc-entry"
-                class:is-active={item.isActive}
-                class:opacity-50={item.isScrolledOver && !item.isActive}
+                class:is-active={cursor.heading === item.id}
+                aria-current={cursor.heading === item.id ? 'location' : undefined}
                 style="padding-left: {0.5 + (item.level - 1) * 0.75}rem;"
                 onclick={() => scrollToHeading(item)}
                 onkeydown={(e) => onEntryKeydown(e, group.index)}
@@ -142,6 +163,8 @@
             {:else}
               <button
                 class="toc-entry toc-preview"
+                class:is-active={cursor.block === group.index}
+                aria-current={cursor.block === group.index ? 'location' : undefined}
                 onclick={() => scrollToBlock(group.index)}
                 onkeydown={(e) => onEntryKeydown(e, group.index)}
                 title={group.label}
@@ -168,8 +191,20 @@
     border-radius: 0.375rem;
   }
 
+  /* The block with the cursor: a tint and an accent bar beside its entries. */
+  .toc-block.is-current .toc-entries {
+    background-color: color-mix(in oklab, var(--color-primary) 6%, transparent);
+    border-radius: 0.375rem;
+    box-shadow: inset 2px 0 0 var(--color-primary);
+  }
+
   .toc-block + .toc-block {
     margin-top: 0.375rem;
+  }
+
+  .toc-entries {
+    flex: 1;
+    min-width: 0;
   }
 
   .toc-handle {
@@ -211,8 +246,8 @@
     }
 
     &.is-active {
-      background-color: var(--gray-3);
-      font-weight: 500;
+      background-color: color-mix(in oklab, var(--color-primary) 16%, transparent);
+      font-weight: 600;
     }
   }
 
