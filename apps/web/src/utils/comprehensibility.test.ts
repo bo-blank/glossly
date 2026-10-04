@@ -55,6 +55,7 @@ describe('formulas', () => {
 describe('textTypeFor', () => {
   it('holds short-form publishing to the web standard, the rest to the specialist one', () => {
     expect(textTypeFor({ template: { id: 'linkedin-post' } })).toBe('web');
+    expect(textTypeFor({ template: { id: 'blog-article' } })).toBe('web');
     expect(textTypeFor({ template: { id: 'cover-letter' } })).toBe('fach');
     expect(textTypeFor(undefined)).toBe('fach');
     expect(textTypeFor({ template: { id: 'linkedin-post' }, textType: 'fach' })).toBe('fach');

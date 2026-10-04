@@ -45,11 +45,12 @@ export function isDocumentDisposable(text: string): boolean {
 
 /**
  * Hohenheim's two yardsticks: web texts (target 16, no sentence over 20
- * words) and specialist/press texts (target 12). Short-form publishing reads
- * on screens, in passing; everything else, and a document without a
- * template, is held to the specialist standard. The writer can switch.
+ * words) and specialist/press texts (target 12). Publishing reads on
+ * screens, in passing — blog articles too (the writer's call). Everything
+ * else, and a document without a template, is held to the specialist
+ * standard. The writer can switch per document.
  */
-const WEB_TEXT_TEMPLATES = new Set(['linkedin-post', 'newsletter', 'video-script']);
+const WEB_TEXT_TEMPLATES = new Set(['linkedin-post', 'newsletter', 'video-script', 'blog-article']);
 
 export function textTypeFor(doc: { textType?: 'fach' | 'web'; template?: { id: string } } | undefined): 'fach' | 'web' {
   return doc?.textType ?? (doc?.template && WEB_TEXT_TEMPLATES.has(doc.template.id) ? 'web' : 'fach');
