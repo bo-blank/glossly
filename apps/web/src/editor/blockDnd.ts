@@ -9,8 +9,10 @@ export interface BlockGroup<T> {
   index: number;
   /** Its headings, in order; may be empty. */
   headings: T[];
-  /** Short grey stand-in for a block without headings: its name, else its first words (decision E). */
-  label: string;
+  /** The block's name; empty when unnamed. Shown above its entries unless names are hidden. */
+  name: string;
+  /** Short grey stand-in for a block without headings: its first words (decision E). */
+  preview: string;
 }
 
 const PREVIEW_WORDS = 4;
@@ -26,7 +28,7 @@ export function blockPreview(section: PMNode): string {
 export function groupByBlock<T extends { pos: number }>(doc: PMNode, items: T[]): BlockGroup<T>[] {
   const groups: BlockGroup<T>[] = [];
   doc.forEach((section, _offset, index) => {
-    groups.push({ index, headings: [], label: (section.attrs.name as string) || blockPreview(section) });
+    groups.push({ index, headings: [], name: section.attrs.name as string, preview: blockPreview(section) });
   });
   for (const item of items) {
     if (item.pos < 0 || item.pos > doc.content.size) continue;

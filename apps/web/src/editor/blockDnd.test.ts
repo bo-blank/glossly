@@ -32,9 +32,10 @@ describe('groupByBlock', () => {
     expect(groups.map((g) => g.index)).toEqual([0, 1, 2, 3]);
   });
 
-  it('labels a block without headings by its name, else its first words (decision E)', () => {
-    expect(groups[1].label).toBe('Ein Block ganz ohne …');
-    expect(groups[2].label).toBe('Schluss');
+  it('gives every block its name and its first words (decision E)', () => {
+    expect(groups.map((g) => g.name)).toEqual(['', '', 'Schluss', '']);
+    expect(groups[1].preview).toBe('Ein Block ganz ohne …');
+    expect(groups[2].preview).toBe('Gruß');
   });
 
   it('ignores items whose position no longer exists', () => {

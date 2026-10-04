@@ -335,3 +335,19 @@
     background-color: var(--readability-hard);
   }
 }
+
+/* Block names hidden (settings.showBlockNames): they are structure, not text.
+   The label's room goes too; the handle moves up with the first line. */
+.hide-block-names .tiptap {
+  .glossly-block {
+    padding-top: 0.25rem;
+  }
+
+  .glossly-block-label {
+    display: none;
+  }
+
+  .glossly-block-handle {
+    top: 0.25rem;
+  }
+}

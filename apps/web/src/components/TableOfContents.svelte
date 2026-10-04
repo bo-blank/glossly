@@ -4,6 +4,7 @@
   import { Selection } from 'prosemirror-state';
   import { tocStore } from '../stores/tocStore';
   import { editorStore } from '../stores/noteStore';
+  import { persistSettings, settingsStore } from '../stores/settingsStore';
   import { gapAt, gapToIndex, groupByBlock } from '../editor/blockDnd';
   import { insertSectionAfter, moveSection, sectionStart } from '../editor/section';
 
@@ -44,6 +45,11 @@
     const { doc } = editor.state;
     const at = Selection.near(doc.resolve(sectionStart(doc, index) + 1)).from;
     editor.chain().focus().setTextSelection(at).scrollIntoView().run();
+  }
+
+  function toggleNames() {
+    settingsStore.update((s) => ({ ...s, showBlockNames: !s.showBlockNames }));
+    persistSettings($settingsStore);
   }
 
   function newBlock() {
@@ -148,6 +154,9 @@
             </svg>
           </span>
           <div class="toc-entries">
+            {#if $settingsStore.showBlockNames && group.name}
+              <div class="toc-name" title="Block name">{group.name}</div>
+            {/if}
             {#each group.headings as item (item.id)}
               <button
                 class="toc-entry"
@@ -167,19 +176,29 @@
                 aria-current={cursor.block === group.index ? 'location' : undefined}
                 onclick={() => scrollToBlock(group.index)}
                 onkeydown={(e) => onEntryKeydown(e, group.index)}
-                title={group.label}
+                title={group.preview}
               >
-                {group.label}
+                {group.preview}
               </button>
             {/each}
           </div>
         </li>
       {/each}
     </ul>
-    <button class="toc-new" onclick={newBlock} title="New empty block after the one with the cursor">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-      New block
-    </button>
+    <div class="toc-actions">
+      <button class="toc-new" onclick={newBlock} title="New empty block after the one with the cursor">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+        New block
+      </button>
+      <button
+        class="toc-new"
+        onclick={toggleNames}
+        aria-pressed={$settingsStore.showBlockNames}
+        title={$settingsStore.showBlockNames ? 'Hide block names here and in the text' : 'Show block names here and in the text'}
+      >
+        {$settingsStore.showBlockNames ? 'Hide names' : 'Show names'}
+      </button>
+    </div>
   </nav>
 {/if}
 
@@ -251,11 +270,28 @@
     }
   }
 
+  .toc-actions {
+    display: flex;
+    justify-content: space-between;
+    margin: 0.75rem 0 0 0.875rem;
+  }
+
+  /* The block's name: structure, not text — small and grey, like in the editor. */
+  .toc-name {
+    padding: 0.25rem 0.5rem 0;
+    font-size: 0.65rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--gray-5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .toc-new {
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    margin: 0.75rem 0 0 0.875rem;
     padding: 0.25rem 0.5rem;
     border-radius: 0.375rem;
     color: var(--gray-5);

@@ -179,6 +179,22 @@
     </label>
   </div>
 
+  <div class="form-control w-full">
+    <label class="label cursor-pointer justify-start gap-3" for="block-names-toggle">
+      <input
+        id="block-names-toggle"
+        type="checkbox"
+        class="toggle toggle-sm"
+        bind:checked={$settingsStore.showBlockNames}
+        onchange={saveSettings}
+      />
+      <span class="label-text">
+        <span class="font-medium">Show block names</span>
+        <span class="block text-xs opacity-60">In the text and the table of contents. Names are structure, not text.</span>
+      </span>
+    </label>
+  </div>
+
   <div class="divider my-1"></div>
 
   <div class="form-control w-full">

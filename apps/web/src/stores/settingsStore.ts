@@ -27,6 +27,8 @@ export interface Settings {
   templateLanguage?: 'de' | 'en';
   /** Yellow/red backgrounds on long sentences while writing. */
   readabilityHighlight: boolean;
+  /** Block names in the editor and the table of contents. They are structure, not text. */
+  showBlockNames: boolean;
 }
 
 const STORAGE_KEY = 'glossly-settings';
@@ -39,7 +41,8 @@ const defaultSettings: Settings = {
   timeout: 10000,
   customModifiers: [],
   modifierTuning: {},
-  readabilityHighlight: true
+  readabilityHighlight: true,
+  showBlockNames: true
 };
 
 function loadSettings(): Settings {

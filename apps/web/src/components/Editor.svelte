@@ -782,7 +782,7 @@
     </div>
   </div>
 {/if}
-<div bind:this={element} class="min-h-[400px]"></div>
+<div bind:this={element} class="min-h-[400px]" class:hide-block-names={!$settingsStore.showBlockNames}></div>
 {#if editor}
   <div class="word-count px-4 pb-2 text-xs flex flex-wrap justify-between gap-x-4 gap-y-1">
     <span class="opacity-60">
