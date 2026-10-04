@@ -29,6 +29,8 @@ export interface Settings {
   readabilityHighlight: boolean;
   /** Block names in the editor and the table of contents. They are structure, not text. */
   showBlockNames: boolean;
+  /** The readability details (target, text type, barriers) are open; closed shows only the index. */
+  readabilityDetails: boolean;
 }
 
 const STORAGE_KEY = 'glossly-settings';
@@ -42,7 +44,8 @@ const defaultSettings: Settings = {
   customModifiers: [],
   modifierTuning: {},
   readabilityHighlight: true,
-  showBlockNames: true
+  showBlockNames: true,
+  readabilityDetails: false
 };
 
 function loadSettings(): Settings {

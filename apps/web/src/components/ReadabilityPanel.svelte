@@ -5,6 +5,7 @@
   // press texts or web texts). German gets the 0–20 comprehensibility index,
   // English Flesch Reading Ease. Labels follow the text's language.
   import { dashboardStore } from '../stores/dashboardStore';
+  import { persistSettings, settingsStore } from '../stores/settingsStore';
   import { documentStore, setTextType } from '../storage/documentStore';
   import { textTypeFor } from '../editor/templates';
   import { BARRIER_LIMITS, MIN_WORDS_FOR_SCORE, TARGETS, type TextType } from '../utils/comprehensibility';
@@ -29,6 +30,8 @@
       of: 'von',
       max: 'max.',
       more: `Mehr Text nötig (ab ${MIN_WORDS_FOR_SCORE} Wörtern)`,
+      details: 'Details',
+      flagged: 'auffällig',
       empty: 'Noch kein Text'
     },
     en: {
@@ -49,6 +52,8 @@
       of: 'of',
       max: 'max.',
       more: `More text needed (from ${MIN_WORDS_FOR_SCORE} words)`,
+      details: 'Details',
+      flagged: 'flagged',
       empty: 'No text yet'
     }
   };
@@ -63,6 +68,21 @@
 
   const num = (n: number, digits = 1) => n.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const percent = (n: number) => `${Math.round(n)} %`;
+
+  // Missed target plus barriers over their limit: what the closed details would hide.
+  const issues = $derived(
+    (r.score !== null && r.score < target ? 1 : 0) +
+      (r.barriers.longSentences.share > limits.longSentences ? 1 : 0) +
+      (r.barriers.longWords.share > limits.longWords ? 1 : 0) +
+      (r.barriers.passive.share > limits.passive ? 1 : 0)
+  );
+
+  function onToggle(e: Event) {
+    const open = (e.currentTarget as HTMLDetailsElement).open;
+    if (open === $settingsStore.readabilityDetails) return;
+    settingsStore.update((s) => ({ ...s, readabilityDetails: open }));
+    persistSettings($settingsStore);
+  }
 
   function chooseType(next: TextType) {
     if (doc && next !== type) void setTextType(doc.id, next);
@@ -84,34 +104,47 @@
             {r.language === 'de' ? `${num(r.score)} / 20` : Math.round(r.score)}
           </span>
         </div>
-        <div class="flex justify-between items-center text-xs">
-          <!-- A badge, not coloured text: amber on white is unreadable. -->
-          <span class="badge badge-sm" class:badge-success={r.score >= target} class:badge-warning={r.score < target}>
-            {t.target} ≥ {target}
-            {r.score >= target ? '✓' : '✗'}
-          </span>
-          {#if r.language === 'en'}<span class="opacity-60">{labelForFleschScore(r.score)}</span>{/if}
-        </div>
       {/if}
 
-      <div class="join mt-1 mb-1" role="group" aria-label={t.typeHint} title={t.typeHint}>
-        {#each ['fach', 'web'] as const as option}
-          <button
-            type="button"
-            class="join-item btn btn-xs"
-            class:btn-active={type === option}
-            aria-pressed={type === option}
-            onclick={() => chooseType(option)}>{t.type[option]}</button
-          >
-        {/each}
-      </div>
+      <!-- Everything else on demand; the summary says when something is off, so closing it hides nothing. -->
+      <details class="group mt-0.5" open={$settingsStore.readabilityDetails} ontoggle={onToggle}>
+        <summary class="cursor-pointer select-none list-none flex items-center gap-1.5 text-xs opacity-70 hover:opacity-100">
+          <span class="inline-block transition-transform group-open:rotate-90" aria-hidden="true">▸</span>
+          {t.details}
+          {#if issues > 0}<span class="over">· {issues} {t.flagged}</span>{/if}
+        </summary>
+        <div class="flex flex-col gap-0.5 pt-1.5">
+          {#if r.score !== null}
+            <div class="flex justify-between items-center text-xs">
+              <!-- A badge, not coloured text: amber on white is unreadable. -->
+              <span class="badge badge-sm" class:badge-success={r.score >= target} class:badge-warning={r.score < target}>
+                {t.target} ≥ {target}
+                {r.score >= target ? '✓' : '✗'}
+              </span>
+              {#if r.language === 'en'}<span class="opacity-60">{labelForFleschScore(r.score)}</span>{/if}
+            </div>
+          {/if}
 
-      <div class="flex justify-between">
-        <span>{t.sentenceLength}</span><span>{num(r.sentenceLength)} {t.wordsUnit}</span>
-      </div>
-      {@render barrier(t.longSentences, t.longSentencesHint, r.barriers.longSentences.share, limits.longSentences, `${r.barriers.longSentences.count} ${t.of} ${r.sentences}`)}
-      {@render barrier(t.longWords, t.longWordsHint, r.barriers.longWords.share, limits.longWords)}
-      {@render barrier(t.passive, t.passiveHint, r.barriers.passive.share, limits.passive, `${r.barriers.passive.count} ${t.of} ${r.sentences}`)}
+          <div class="join mt-1 mb-1" role="group" aria-label={t.typeHint} title={t.typeHint}>
+            {#each ['fach', 'web'] as const as option}
+              <button
+                type="button"
+                class="join-item btn btn-xs"
+                class:btn-active={type === option}
+                aria-pressed={type === option}
+                onclick={() => chooseType(option)}>{t.type[option]}</button
+              >
+            {/each}
+          </div>
+
+          <div class="flex justify-between">
+            <span>{t.sentenceLength}</span><span>{num(r.sentenceLength)} {t.wordsUnit}</span>
+          </div>
+          {@render barrier(t.longSentences, t.longSentencesHint, r.barriers.longSentences.share, limits.longSentences, `${r.barriers.longSentences.count} ${t.of} ${r.sentences}`)}
+          {@render barrier(t.longWords, t.longWordsHint, r.barriers.longWords.share, limits.longWords)}
+          {@render barrier(t.passive, t.passiveHint, r.barriers.passive.share, limits.passive, `${r.barriers.passive.count} ${t.of} ${r.sentences}`)}
+        </div>
+      </details>
     </div>
   {/if}
 </div>
