@@ -203,9 +203,9 @@ const NOT_ONLY: Record<TextLanguage, RegExp> = {
   en: W('not only[^.!?]{1,80}?but also')
 };
 
-// "Das ist nicht X." / "Das ist kein X." — what something is not, first.
+// "Das ist nicht X." / "Es war kein X." — what something is not, first.
 const NOT_THIS: Record<TextLanguage, RegExp> = {
-  de: W('(?:das|dies|es) ist (?:nicht|kein(?:e|en|er|es)?) [^.!?,;:]{1,50}'),
+  de: W('(?:das|dies|es) (?:ist|war) (?:nicht|kein(?:e|en|er|es)?) [^.!?,;:]{1,50}'),
   en: W("(?:this|that|it) (?:is not|isn'?t|'s not|was not|wasn'?t) [^.!?,;:]{1,50}")
 };
 

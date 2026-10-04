@@ -45,6 +45,7 @@ describe('patterns that count from a threshold', () => {
 
   it('"Das ist nicht X" every time, counted once when it goes on with "sondern"', () => {
     expect(find(blocks('Das ist kein Zufall.'), 'notThis')!.hits[0].quote).toBe('Das ist kein Zufall');
+    expect(find(blocks('Es war keine Frage, und er wusste es.'), 'notThis')!.hits[0].quote).toBe('Es war keine Frage');
     const b = blocks('Das ist nicht Bürokratie, sondern Haltung.');
     expect(rules(b)).toContain('notThis');
     expect(rules(b)).not.toContain('contrast');

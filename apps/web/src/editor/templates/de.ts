@@ -320,7 +320,7 @@ export const DE: TemplateText[] = [
         <p>„Wir könnten ein Taxi nehmen“, sagte er.</p>
         <p>„Wohin denn?“</p>
         <p>Er antwortete nicht. Irgendwo hinter ihnen summte ein Getränkeautomat und verstummte. Eine Taube lief die gelbe Linie entlang, begutachtete einen Krümel und entschied sich dagegen.</p>
-        <p>„Du hast es deiner Schwester nie gesagt“, sagte Lena. Es war keine Frage, und er behandelte es auch nicht als eine. Er nahm die Hände aus den Taschen, sah sie an und steckte sie wieder ein.</p>
+        <p>„Du hast es deiner Schwester nie gesagt“, sagte Lena tonlos. Er ließ es stehen. Er nahm die Hände aus den Taschen, sah sie an und steckte sie wieder ein.</p>
         <p>„Ich wollte es. Heute Abend. Beim Essen.“</p>
         <p>„Und jetzt gibt es kein Essen.“</p>
         <p>„Jetzt gibt es keinen Zug.“ Fast lächelte er. „Fühlt sich an wie ein Zeichen.“</p>
