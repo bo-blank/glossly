@@ -47,9 +47,6 @@
 
   <ReadabilityPanel />
 
-  <!-- Below stats and readability, so a long outline never pushes them out of view. -->
-  <StructureGuide variant="aside" />
-
   <div>
     <h3 class="text-xs font-semibold uppercase tracking-wide opacity-60 mb-1.5">AI likeness</h3>
 
@@ -84,4 +81,7 @@
       {/if}
     {/if}
   </div>
+
+  <!-- Below the measures and the AI check, so a long outline never pushes them out of view. -->
+  <StructureGuide variant="aside" />
 </aside>
