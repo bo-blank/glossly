@@ -273,6 +273,14 @@ block 1, Ctrl+Z after each.
 
 ## WP5 — Outline in the structure card
 
+**Done 2026-10-04.** Kept as planned although the table of contents (WP5b)
+already moves blocks: the card is the only block overview below xl, and
+adds word counts, renaming and the guide notes per block (writer's choice).
+Notes that apply to the whole text (`general`) or lost their block to a
+rename are listed below the rows. Shared helpers: `editor/blockNav.ts`
+(jump, keys) and `stores/blocksStore.ts`. Word counts update live — one
+pass over the blocks per transaction, no signature check needed.
+
 **Goal:** the structure of the text at a glance, next to it, and the
 fastest way to reorder.
 

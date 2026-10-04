@@ -17,11 +17,16 @@ export interface BlockGroup<T> {
 
 const PREVIEW_WORDS = 4;
 
+/** Plain text of a block, paragraphs apart. */
+export function blockText(section: PMNode): string {
+  return section.textBetween(0, section.content.size, ' ', ' ');
+}
+
 /** First words of a block, for a block the table of contents has no heading for. */
-export function blockPreview(section: PMNode): string {
-  const words = section.textBetween(0, section.content.size, ' ', ' ').split(/\s+/).filter(Boolean);
+export function blockPreview(section: PMNode, count = PREVIEW_WORDS): string {
+  const words = blockText(section).split(/\s+/).filter(Boolean);
   if (words.length === 0) return 'Empty block';
-  return words.slice(0, PREVIEW_WORDS).join(' ') + (words.length > PREVIEW_WORDS ? ' …' : '');
+  return words.slice(0, count).join(' ') + (words.length > count ? ' …' : '');
 }
 
 /** Groups table-of-contents items (by their document position) under the block that holds them. */

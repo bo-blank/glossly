@@ -1,12 +1,12 @@
 <!-- components/TableOfContents.svelte -->
 <script>
   import { flushSync } from 'svelte';
-  import { Selection } from 'prosemirror-state';
   import { tocStore } from '../stores/tocStore';
   import { editorStore } from '../stores/noteStore';
   import { persistSettings, settingsStore } from '../stores/settingsStore';
   import { gapAt, gapToIndex, groupByBlock } from '../editor/blockDnd';
-  import { insertSectionAfter, moveSection, sectionStart } from '../editor/section';
+  import { insertSectionAfter } from '../editor/section';
+  import { blockListKey, jumpTo, jumpToBlock, moveBlock } from '../editor/blockNav';
 
   // Entries are grouped by block: dragging any entry, or the group's handle,
   // moves the whole block. A heading never moves on its own.
@@ -36,37 +36,12 @@
   let dragFrom = $state(null);
   let dropGap = $state(null);
 
-  // Where a jump lands: the target's top a third of the way down the window,
-  // so the section reads from just above the middle, with a little of what
-  // comes before still in view.
-  const LAND_AT = 1 / 3;
-
-  /**
-   * Puts the cursor at `pos` and scrolls the node starting at `nodePos` to
-   * LAND_AT. Not Tiptap's focus().scrollIntoView(): that scrolls only as far
-   * as needed, and its focus scrolls again a frame later.
-   */
-  function jumpTo(pos, nodePos) {
-    if (!editor) return;
-    const { view } = editor;
-    const { state } = view;
-    view.dispatch(state.tr.setSelection(Selection.near(state.doc.resolve(pos))));
-    view.focus();
-    const target = view.nodeDOM(nodePos);
-    if (!(target instanceof HTMLElement)) return;
-    const top = target.getBoundingClientRect().top + window.scrollY - window.innerHeight * LAND_AT;
-    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    window.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
-  }
-
   function scrollToHeading(item) {
-    jumpTo(item.pos + 1, item.pos);
+    if (editor) jumpTo(editor, item.pos + 1, item.pos);
   }
 
   function scrollToBlock(index) {
-    if (!editor) return;
-    const start = sectionStart(editor.state.doc, index);
-    jumpTo(start + 1, start);
+    if (editor) jumpToBlock(editor, index);
   }
 
   function toggleNames() {
@@ -81,7 +56,7 @@
   }
 
   function move(from, to) {
-    return !!editor && moveSection(from, to)(editor.state, editor.view.dispatch);
+    return !!editor && moveBlock(editor, from, to);
   }
 
   // Render now and put focus on the block's entry before the next key arrives:
@@ -93,19 +68,8 @@
   }
 
   function onEntryKeydown(e, index) {
-    const mod = e.ctrlKey || e.metaKey;
-    const key = e.key.toLowerCase();
-    if (e.altKey && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-      e.preventDefault();
-      const to = index + (e.key === 'ArrowUp' ? -1 : 1);
-      if (move(index, to)) focusGroup(to);
-    } else if (mod && (key === 'y' || key === 'z')) {
-      // Undo and redo work from here too, so a move made here can be taken back here.
-      e.preventDefault();
-      if (key === 'y' || e.shiftKey) editor?.commands.redo();
-      else editor?.commands.undo();
-      focusGroup(index);
-    }
+    const next = editor && blockListKey(e, editor, index);
+    if (next != null) focusGroup(next);
   }
 
   function onDragStart(e, index) {

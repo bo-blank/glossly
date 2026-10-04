@@ -1,7 +1,7 @@
 import { getSchema } from '@tiptap/core';
 import type { Node as PMNode } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
-import { blockPreview, gapAt, gapToIndex, groupByBlock } from './blockDnd';
+import { blockPreview, blockText, gapAt, gapToIndex, groupByBlock } from './blockDnd';
 import { schemaExtensions } from './schemaExtensions';
 
 const schema = getSchema(schemaExtensions);
@@ -51,6 +51,11 @@ describe('blockPreview', () => {
 
   it('does not glue words across paragraphs', () => {
     expect(blockPreview(sec('', p('eins'), p('zwei')))).toBe('eins zwei');
+  });
+
+  it('takes a longer preview for the outline', () => {
+    expect(blockPreview(sec('', p('eins zwei drei vier fünf sechs sieben')), 6)).toBe('eins zwei drei vier fünf sechs …');
+    expect(blockText(sec('', h('Titel'), p('Text')))).toBe('Titel Text');
   });
 });
 
