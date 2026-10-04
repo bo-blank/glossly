@@ -7,7 +7,8 @@
   import { Selection, CharacterCount } from '@tiptap/extensions';
   import { EmptyPlaceholder } from '../editor/emptyPlaceholder';
   import { TableOfContents, getHierarchicalIndexes } from '@tiptap/extension-table-of-contents';
-  import { Editor, getSchema } from '@tiptap/core';
+  import { Editor, Extension, getSchema } from '@tiptap/core';
+  import { Plugin } from 'prosemirror-state';
   import { onMount, onDestroy } from 'svelte';
   import { editorStore, noteStore } from '../stores/noteStore';
   import { tocStore } from '../stores/tocStore';
@@ -31,6 +32,14 @@
   // oxlint-disable-next-line
   let element;
   let editor = $state(null);
+  // The toolbar's active/enabled states read the editor through live(). The
+  // editor object never changes identity, so runes would not notice a new
+  // transaction on their own (the old `editor = editor` was a no-op since Svelte 5).
+  let transactions = $state(0);
+  function live() {
+    transactions;
+    return editor;
+  }
   let toolbarRef = $state(null);
   let imageInputRef = $state(null);
 
@@ -381,12 +390,25 @@
     const content = sectionedContent(html, blockSchema);
     // TableOfContents stamps heading ids in its own onCreate, which runs before
     // ours. That is not an edit: saving it would make every freshly opened file
-    // look changed and rewrite it on disk.
+    // look changed and rewrite it on disk, and as an undo step it would leave
+    // a fresh document with one Ctrl+Z that seems to do nothing.
     let created = false;
+    const SetupNotUndoable = Extension.create({
+      name: 'setupNotUndoable',
+      addProseMirrorPlugins: () => [
+        new Plugin({
+          filterTransaction: (tr) => {
+            if (!created) tr.setMeta('addToHistory', false);
+            return true;
+          },
+        }),
+      ],
+    });
     const ed = new Editor({
       element: element,
       extensions: [
         ...schemaExtensions,
+        SetupNotUndoable,
         EmptyPlaceholder.configure({ placeholder: () => placeholderFor(hintSeen) }),
         Selection,
         // The same word count as the readability highlighting: dashes are not words.
@@ -399,9 +421,7 @@
       ],
       content,
       onTransaction: () => {
-        // force re-render so `editor.isActive` works as expected
-        // oxlint-disable-next-line no-self-assign
-        editor = editor;
+        transactions++;
       },
       onSelectionUpdate: ({ editor: ed }) => handleSelectionUpdate(ed),
       onCreate: () => {
@@ -437,16 +457,16 @@
       <div class="toolbar-group">
         <button
           onclick={() => editor.chain().focus().undo().run()}
-          disabled={!editor.can().chain().focus().undo().run()}
-          class={btnClass(false, !editor.can().chain().focus().undo().run())}
+          disabled={!live().can().chain().focus().undo().run()}
+          class={btnClass(false, !live().can().chain().focus().undo().run())}
           title="Undo (⌘Z)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
         </button>
         <button
           onclick={() => editor.chain().focus().redo().run()}
-          disabled={!editor.can().chain().focus().redo().run()}
-          class={btnClass(false, !editor.can().chain().focus().redo().run())}
+          disabled={!live().can().chain().focus().redo().run()}
+          class={btnClass(false, !live().can().chain().focus().redo().run())}
           title="Redo (⌘⇧Z)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
@@ -460,7 +480,7 @@
         <button
           bind:this={headingBtnRef}
           onclick={(e) => { e.stopPropagation(); toggleHeadingMenu(); }}
-          class={btnClass(editor.isActive('heading'), false)}
+          class={btnClass(live().isActive('heading'), false)}
           title="Heading"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5v14"/><path d="M16 5v14"/><path d="M4 12h12"/></svg>
@@ -483,7 +503,7 @@
         <button
           bind:this={listBtnRef}
           onclick={(e) => { e.stopPropagation(); toggleListMenu(); }}
-          class={btnClass(editor.isActive('bulletList') || editor.isActive('orderedList') || editor.isActive('taskList'), false)}
+          class={btnClass(live().isActive('bulletList') || live().isActive('orderedList') || live().isActive('taskList'), false)}
           title="List"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg>
@@ -505,14 +525,14 @@
 
         <button
           onclick={() => editor.chain().focus().toggleBlockquote().run()}
-          class={btnClass(editor.isActive('blockquote'), false)}
+          class={btnClass(live().isActive('blockquote'), false)}
           title="Quote"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M10 8c-1.1 0-2 .9-2 2v8h4v-6c0-.6.4-1 1-1h2v-3h-5zm8 0c-1.1 0-2 .9-2 2v8h4v-6c0-.6.4-1 1-1h2v-3h-5z"/></svg>
         </button>
         <button
           onclick={() => editor.chain().focus().toggleCodeBlock().run()}
-          class={btnClass(editor.isActive('codeBlock'), false)}
+          class={btnClass(live().isActive('codeBlock'), false)}
           title="Code block"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 3 12 8 18"/><polyline points="16 6 21 12 16 18"/></svg>
@@ -525,40 +545,40 @@
       <div class="toolbar-group">
         <button
           onclick={() => editor.chain().focus().toggleBold().run()}
-          disabled={!editor.can().chain().focus().toggleBold().run()}
-          class={btnClass(editor.isActive('bold'), !editor.can().chain().focus().toggleBold().run())}
+          disabled={!live().can().chain().focus().toggleBold().run()}
+          class={btnClass(live().isActive('bold'), !live().can().chain().focus().toggleBold().run())}
           title="Bold (⌘B)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>
         </button>
         <button
           onclick={() => editor.chain().focus().toggleItalic().run()}
-          disabled={!editor.can().chain().focus().toggleItalic().run()}
-          class={btnClass(editor.isActive('italic'), !editor.can().chain().focus().toggleItalic().run())}
+          disabled={!live().can().chain().focus().toggleItalic().run()}
+          class={btnClass(live().isActive('italic'), !live().can().chain().focus().toggleItalic().run())}
           title="Italic (⌘I)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
         </button>
         <button
           onclick={() => editor.chain().focus().toggleStrike().run()}
-          disabled={!editor.can().chain().focus().toggleStrike().run()}
-          class={btnClass(editor.isActive('strike'), !editor.can().chain().focus().toggleStrike().run())}
+          disabled={!live().can().chain().focus().toggleStrike().run()}
+          class={btnClass(live().isActive('strike'), !live().can().chain().focus().toggleStrike().run())}
           title="Strikethrough"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 12H5"/><path d="M4 17h6a3 3 0 0 0 3-3 3 3 0 0 0-3-3H4"/><path d="M20 7h-6a3 3 0 0 0-3 3 3 3 0 0 0 3 3h12"/></svg>
         </button>
         <button
           onclick={() => editor.chain().focus().toggleCode().run()}
-          disabled={!editor.can().chain().focus().toggleCode().run()}
-          class={btnClass(editor.isActive('code'), !editor.can().chain().focus().toggleCode().run())}
+          disabled={!live().can().chain().focus().toggleCode().run()}
+          class={btnClass(live().isActive('code'), !live().can().chain().focus().toggleCode().run())}
           title="Inline code"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         </button>
         <button
           onclick={() => editor.chain().focus().toggleUnderline().run()}
-          disabled={!editor.can().chain().focus().toggleUnderline().run()}
-          class={btnClass(editor.isActive('underline'), !editor.can().chain().focus().toggleUnderline().run())}
+          disabled={!live().can().chain().focus().toggleUnderline().run()}
+          class={btnClass(live().isActive('underline'), !live().can().chain().focus().toggleUnderline().run())}
           title="Underline (⌘U)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v6a6 6 0 0 0 12 0V4"/><line x1="4" y1="20" x2="20" y2="20"/></svg>
@@ -567,7 +587,7 @@
         <button
           bind:this={highlightBtnRef}
           onclick={(e) => { e.stopPropagation(); toggleHighlightMenu(); }}
-          class={btnClass(editor.isActive('highlight'), false)}
+          class={btnClass(live().isActive('highlight'), false)}
           title="Highlight"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l6-6 4 4-8 8H7v-4z"/><line x1="5" y1="21" x2="11" y2="21"/></svg>
@@ -599,7 +619,7 @@
         <button
           bind:this={linkBtnRef}
           onclick={(e) => { e.stopPropagation(); toggleLinkMenu(); }}
-          class={btnClass(editor.isActive('link'), false)}
+          class={btnClass(live().isActive('link'), false)}
           title="Link"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12a3 3 0 0 1 3-3h2l2-2a4 4 0 1 1 4 4l-2 2"/><path d="M16 12a3 3 0 0 1-3 3h-2l-2 2a4 4 0 1 1-4-4l2-2"/></svg>
@@ -634,14 +654,14 @@
       <div class="toolbar-group">
         <button
           onclick={() => editor.chain().focus().toggleSuperscript().run()}
-          class={btnClass(editor.isActive('superscript'), false)}
+          class={btnClass(live().isActive('superscript'), false)}
           title="Superscript"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><text x="2" y="18" font-size="13" fill="currentColor" stroke="none">x</text><text x="14" y="9" font-size="8" fill="currentColor" stroke="none">2</text></svg>
         </button>
         <button
           onclick={() => editor.chain().focus().toggleSubscript().run()}
-          class={btnClass(editor.isActive('subscript'), false)}
+          class={btnClass(live().isActive('subscript'), false)}
           title="Subscript"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><text x="2" y="14" font-size="13" fill="currentColor" stroke="none">x</text><text x="14" y="21" font-size="8" fill="currentColor" stroke="none">2</text></svg>
@@ -654,28 +674,28 @@
       <div class="toolbar-group">
         <button
           onclick={() => editor.chain().focus().setTextAlign('left').run()}
-          class={btnClass(editor.isActive({ textAlign: 'left' }), false)}
+          class={btnClass(live().isActive({ textAlign: 'left' }), false)}
           title="Align left"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
         </button>
         <button
           onclick={() => editor.chain().focus().setTextAlign('center').run()}
-          class={btnClass(editor.isActive({ textAlign: 'center' }), false)}
+          class={btnClass(live().isActive({ textAlign: 'center' }), false)}
           title="Align center"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
         </button>
         <button
           onclick={() => editor.chain().focus().setTextAlign('right').run()}
-          class={btnClass(editor.isActive({ textAlign: 'right' }), false)}
+          class={btnClass(live().isActive({ textAlign: 'right' }), false)}
           title="Align right"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
         </button>
         <button
           onclick={() => editor.chain().focus().setTextAlign('justify').run()}
-          class={btnClass(editor.isActive({ textAlign: 'justify' }), false)}
+          class={btnClass(live().isActive({ textAlign: 'justify' }), false)}
           title="Justify"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
