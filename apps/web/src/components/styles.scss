@@ -1,21 +1,40 @@
-/* Toolbar */
+/* Toolbar: one compact row at the editor's width, sticky (Editor.svelte). */
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-wrap: wrap;
-  row-gap: 6px;
+  row-gap: 2px;
+
+  /* 28px instead of daisyUI's 32px small buttons. */
+  .btn-sm {
+    height: 1.75rem;
+    min-height: 1.75rem;
+    padding-inline: 0.375rem;
+  }
+
+  .btn-sm.btn-square {
+    width: 1.75rem;
+    padding: 0;
+  }
+
+  /* Dropdown buttons carry a chevron: a little wider than square. */
+  .btn-sm.btn-square:has(svg + svg) {
+    width: 2.25rem;
+    gap: 1px;
+  }
 }
 
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 
 .toolbar-divider {
   width: 1px;
-  height: 24px;
+  height: 18px;
+  margin-inline: 3px;
   background-color: var(--fallback-bc, oklch(var(--bc) / 0.15));
   flex-shrink: 0;
 }

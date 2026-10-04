@@ -56,6 +56,14 @@
   let highlightPos = $state({ x: 0, y: 0 });
   let highlightBtnRef = $state(null);
 
+  let alignOpen = $state(false);
+  let alignPos = $state({ x: 0, y: 0 });
+  let alignBtnRef = $state(null);
+
+  let moreOpen = $state(false);
+  let morePos = $state({ x: 0, y: 0 });
+  let moreBtnRef = $state(null);
+
   let linkOpen = $state(false);
   let linkPos = $state({ x: 0, y: 0 });
   let linkBtnRef = $state(null);
@@ -85,6 +93,8 @@
     headingOpen = false;
     listOpen = false;
     highlightOpen = false;
+    alignOpen = false;
+    moreOpen = false;
     linkOpen = false;
     templateOpen = false;
     pendingTemplate = null;
@@ -121,6 +131,45 @@
       highlightOpen = true;
     }
   }
+
+  function toggleAlignMenu() {
+    const wasOpen = alignOpen;
+    closeAllMenus();
+    if (!wasOpen && alignBtnRef) {
+      alignPos = positionOf(alignBtnRef);
+      alignOpen = true;
+    }
+  }
+
+  function toggleMoreMenu() {
+    const wasOpen = moreOpen;
+    closeAllMenus();
+    if (!wasOpen && moreBtnRef) {
+      morePos = positionOf(moreBtnRef);
+      moreOpen = true;
+    }
+  }
+
+  // Alignment as one dropdown; its button shows the current alignment.
+  const ALIGN_ICONS = {
+    left: '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/>',
+    center: '<line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>',
+    right: '<line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/>',
+    justify: '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
+  };
+  const ALIGN_LABELS = { left: 'Align left', center: 'Align center', right: 'Align right', justify: 'Justify' };
+  function currentAlign() {
+    const ed = live();
+    return ['center', 'right', 'justify'].find((a) => ed.isActive({ textAlign: a })) ?? 'left';
+  }
+
+  // The less frequent marks, behind "⋯".
+  const MORE_MARKS = [
+    { name: 'strike', label: 'Strikethrough', run: (c) => c.toggleStrike() },
+    { name: 'code', label: 'Inline code', run: (c) => c.toggleCode() },
+    { name: 'superscript', label: 'Superscript', run: (c) => c.toggleSuperscript() },
+    { name: 'subscript', label: 'Subscript', run: (c) => c.toggleSubscript() },
+  ];
 
   function toggleLinkMenu() {
     const wasOpen = linkOpen;
@@ -462,8 +511,9 @@
 </script>
 
 {#if editor}
-  <div class="border border-base-300 rounded-xl overflow-visible">
-    <div class="toolbar p-2 bg-base-100 flex items-center gap-1 flex-wrap" bind:this={toolbarRef}>
+  <!-- Sticky: the formatting stays at hand while scrolling through a long text. -->
+  <div class="editor-toolbar sticky top-0 z-40 border border-base-300 rounded-xl bg-base-100 overflow-visible">
+    <div class="toolbar px-1.5 py-1 flex items-center flex-wrap" bind:this={toolbarRef}>
 
       <!-- Undo / redo -->
       <div class="toolbar-group">
@@ -584,22 +634,6 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
         </button>
         <button
-          onclick={() => editor.chain().focus().toggleStrike().run()}
-          disabled={!live().can().chain().focus().toggleStrike().run()}
-          class={btnClass(live().isActive('strike'), !live().can().chain().focus().toggleStrike().run())}
-          title="Strikethrough"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 12H5"/><path d="M4 17h6a3 3 0 0 0 3-3 3 3 0 0 0-3-3H4"/><path d="M20 7h-6a3 3 0 0 0-3 3 3 3 0 0 0 3 3h12"/></svg>
-        </button>
-        <button
-          onclick={() => editor.chain().focus().toggleCode().run()}
-          disabled={!live().can().chain().focus().toggleCode().run()}
-          class={btnClass(live().isActive('code'), !live().can().chain().focus().toggleCode().run())}
-          title="Inline code"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        </button>
-        <button
           onclick={() => editor.chain().focus().toggleUnderline().run()}
           disabled={!live().can().chain().focus().toggleUnderline().run()}
           class={btnClass(live().isActive('underline'), !live().can().chain().focus().toggleUnderline().run())}
@@ -674,56 +708,61 @@
 
       <div class="toolbar-divider"></div>
 
-      <!-- Super / subscript -->
+      <!-- Less frequent marks -->
       <div class="toolbar-group">
         <button
-          onclick={() => editor.chain().focus().toggleSuperscript().run()}
-          class={btnClass(live().isActive('superscript'), false)}
-          title="Superscript"
+          bind:this={moreBtnRef}
+          onclick={(e) => { e.stopPropagation(); toggleMoreMenu(); }}
+          class={btnClass(MORE_MARKS.some((m) => live().isActive(m.name)), false)}
+          title="More formatting"
+          aria-label="More formatting"
+          aria-expanded={moreOpen}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><text x="2" y="18" font-size="13" fill="currentColor" stroke="none">x</text><text x="14" y="9" font-size="8" fill="currentColor" stroke="none">2</text></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
         </button>
-        <button
-          onclick={() => editor.chain().focus().toggleSubscript().run()}
-          class={btnClass(live().isActive('subscript'), false)}
-          title="Subscript"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><text x="2" y="14" font-size="13" fill="currentColor" stroke="none">x</text><text x="14" y="21" font-size="8" fill="currentColor" stroke="none">2</text></svg>
-        </button>
-      </div>
+        {#if moreOpen}
+          <div
+            class="fixed p-2 w-44 bg-base-200 border border-base-300 rounded-lg shadow-lg z-[100]"
+            style="left: {morePos.x}px; top: {morePos.y}px;"
+          >
+            {#each MORE_MARKS as mark}
+              <button
+                onclick={() => { mark.run(editor.chain().focus()).run(); moreOpen = false; }}
+                class="flex w-full items-center justify-between text-left px-3 py-2 rounded-md text-sm hover:bg-base-300 transition-colors"
+                aria-pressed={live().isActive(mark.name)}
+              >{mark.label}{#if live().isActive(mark.name)}<span aria-hidden="true">✓</span>{/if}</button>
+            {/each}
+          </div>
+        {/if}
 
-      <div class="toolbar-divider"></div>
-
-      <!-- Text align -->
-      <div class="toolbar-group">
         <button
-          onclick={() => editor.chain().focus().setTextAlign('left').run()}
-          class={btnClass(live().isActive({ textAlign: 'left' }), false)}
-          title="Align left"
+          bind:this={alignBtnRef}
+          onclick={(e) => { e.stopPropagation(); toggleAlignMenu(); }}
+          class={btnClass(false, false)}
+          title="Alignment: {ALIGN_LABELS[currentAlign()]}"
+          aria-label="Alignment"
+          aria-expanded={alignOpen}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ALIGN_ICONS[currentAlign()]}</svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-        <button
-          onclick={() => editor.chain().focus().setTextAlign('center').run()}
-          class={btnClass(live().isActive({ textAlign: 'center' }), false)}
-          title="Align center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
-        </button>
-        <button
-          onclick={() => editor.chain().focus().setTextAlign('right').run()}
-          class={btnClass(live().isActive({ textAlign: 'right' }), false)}
-          title="Align right"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
-        </button>
-        <button
-          onclick={() => editor.chain().focus().setTextAlign('justify').run()}
-          class={btnClass(live().isActive({ textAlign: 'justify' }), false)}
-          title="Justify"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-        </button>
+        {#if alignOpen}
+          <div
+            class="fixed p-2 w-40 bg-base-200 border border-base-300 rounded-lg shadow-lg z-[100]"
+            style="left: {alignPos.x}px; top: {alignPos.y}px;"
+          >
+            {#each Object.keys(ALIGN_LABELS) as align}
+              <button
+                onclick={() => { editor.chain().focus().setTextAlign(align).run(); alignOpen = false; }}
+                class="flex w-full items-center gap-2 text-left px-3 py-2 rounded-md text-sm hover:bg-base-300 transition-colors"
+                aria-pressed={currentAlign() === align}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ALIGN_ICONS[align]}</svg>
+                {ALIGN_LABELS[align]}
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
 
       <div class="toolbar-divider"></div>
