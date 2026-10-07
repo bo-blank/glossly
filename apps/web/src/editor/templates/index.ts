@@ -25,10 +25,6 @@ export const TEMPLATE_GROUPS: { id: TemplateGroup; label: Record<TemplateLanguag
   { id: 'fiction', label: { de: 'Erzählen', en: 'Fiction' }, ids: ['scene'] }
 ];
 
-export function templatesIn(language: TemplateLanguage): TemplateText[] {
-  return BY_LANGUAGE[language];
-}
-
 export function findTemplate(language: TemplateLanguage, id: string): TemplateText | undefined {
   return BY_LANGUAGE[language]?.find((t) => t.id === id);
 }

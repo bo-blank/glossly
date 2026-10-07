@@ -150,12 +150,11 @@ Any server supporting OpenAI-compatible API (llama.cpp, vLLM, LocalAI, etc.)
 # Root: run proxy + web app together
 npm run dev
 npm run build
-npm run lint            # lints apps/server
+npm run lint            # type-checks both apps (tsc, svelte-check)
 npm test                # runs vitest across workspaces
 
 # apps/web only
 npm run preview --prefix apps/web   # preview production build
-npm run format --prefix apps/web    # prettier
 ```
 
 ### Testing

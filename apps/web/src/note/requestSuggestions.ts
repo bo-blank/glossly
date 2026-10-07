@@ -16,7 +16,7 @@ const DEBOUNCE_MS = 200;
  * The treatment plan's rewrites: an id the server does not know, so it uses
  * the instruction sent with it (one per finding, see utils/slop.ts).
  */
-export const TREATMENT_MODIFIER = 'treatment';
+const TREATMENT_MODIFIER = 'treatment';
 
 export interface SelectionInfo {
   selectedText: string;

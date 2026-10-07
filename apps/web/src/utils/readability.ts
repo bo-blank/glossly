@@ -42,7 +42,7 @@ export function countWords(text: string): number {
   return text.split(/\s+/).filter(isWord).length;
 }
 
-export function estimateReadingTimeMinutes(words: number, language: TextLanguage = 'en'): number {
+function estimateReadingTimeMinutes(words: number, language: TextLanguage = 'en'): number {
   return words / WORDS_PER_MINUTE[language];
 }
 
@@ -66,8 +66,8 @@ export type ReadabilityTier = 'standard' | 'hard';
 // longer "hard" — and Hohenheim counts sentences over 20 words as long. The
 // first version marked from 15 words (an API figure for the *average*
 // sentence), which turned ordinary prose yellow.
-export const STANDARD_MIN_WORDS = 20;
-export const HARD_MIN_WORDS = 30;
+const STANDARD_MIN_WORDS = 20;
+const HARD_MIN_WORDS = 30;
 
 export function tierForSentenceLength(wordCount: number): ReadabilityTier | null {
   if (wordCount >= HARD_MIN_WORDS) return 'hard';

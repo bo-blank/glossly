@@ -63,7 +63,3 @@ export const settingsStore = writable<Settings>(loadSettings());
 export function persistSettings(settings: Settings) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
 }
-
-export function updateSettings(newSettings: Partial<Settings>) {
-  settingsStore.update(s => ({ ...s, ...newSettings }));
-}

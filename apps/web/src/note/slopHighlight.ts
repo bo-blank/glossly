@@ -13,7 +13,7 @@ import { blockTexts } from '../editor/blockText';
 
 const DEBOUNCE_MS = 300;
 
-export const slopHighlightKey = new PluginKey('slopHighlight');
+const slopHighlightKey = new PluginKey('slopHighlight');
 
 let open = false;
 let fallbackLanguage: () => TextLanguage = () => 'de';

@@ -1,7 +1,7 @@
 // Pure helpers for images stored as blobs. The document HTML references an
 // image as `glossly-blob:<id>`; the bytes live in the `blobs` object store.
 
-export const BLOB_PREFIX = 'glossly-blob:';
+const BLOB_PREFIX = 'glossly-blob:';
 
 export function blobSrc(id: string): string {
   return `${BLOB_PREFIX}${id}`;
