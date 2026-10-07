@@ -55,9 +55,24 @@
   border-radius: 0.75rem;
   padding: 1rem 1.5rem;
   outline: none;
+  /* Reading text: a touch larger than UI text, with room between lines. */
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  overflow-wrap: break-word;
 
   :first-child {
     margin-top: 0;
+  }
+
+  /* Tailwind's preflight zeroes paragraph margins; give consecutive ones air. */
+  p + p {
+    margin-top: 0.85em;
+  }
+
+  a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   /* List styles */
@@ -97,40 +112,51 @@
     }
   }
 
-  /* Heading styles */
+  /* Heading styles: a clear scale, bold (preflight resets the weight), tight
+     leading, and more space above than below so a heading binds to its text. */
   h1,
   h2,
   h3,
   h4,
   h5,
   h6 {
-    line-height: 1.1;
-    margin-top: 2.5rem;
-    text-wrap: pretty;
-  }
-
-  h1,
-  h2 {
-    margin-top: 3.5rem;
-    margin-bottom: 1.5rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    margin-top: 2rem;
+    margin-bottom: 0.5rem;
+    text-wrap: balance;
   }
 
   h1 {
-    font-size: 1.4rem;
+    font-size: 1.875rem;
+    letter-spacing: -0.02em;
+    margin-top: 2.75rem;
+    margin-bottom: 0.75rem;
   }
 
   h2 {
-    font-size: 1.2rem;
+    font-size: 1.5rem;
+    margin-top: 2.5rem;
+    margin-bottom: 0.625rem;
   }
 
   h3 {
-    font-size: 1.1rem;
+    font-size: 1.25rem;
+    font-weight: 650;
   }
 
-  h4,
+  h4 {
+    font-size: 1.0625rem;
+    font-weight: 650;
+  }
+
   h5,
   h6 {
-    font-size: 1rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--gray-5);
   }
 
   /* Code and preformatted text styles */
@@ -138,8 +164,8 @@
     background-color: var(--purple-light);
     border-radius: 0.4rem;
     color: var(--black);
-    font-size: 0.85rem;
-    padding: 0.25em 0.3em;
+    font-size: 0.875em;
+    padding: 0.15em 0.3em;
   }
 
   pre {
@@ -153,7 +179,8 @@
     code {
       background: none;
       color: inherit;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
+      line-height: 1.55;
       padding: 0;
     }
   }
@@ -162,6 +189,7 @@
     border-left: 3px solid var(--gray-3);
     margin: 1.5rem 0;
     padding-left: 1rem;
+    color: var(--gray-5);
   }
 
   hr {
@@ -244,7 +272,7 @@
     top: 1.5rem;
     left: -1.1rem;
     width: 1rem;
-    height: 1.6rem;
+    height: 1.8rem; /* one line of body text (1.0625rem × 1.7) */
     display: flex;
     align-items: center;
     justify-content: center;
