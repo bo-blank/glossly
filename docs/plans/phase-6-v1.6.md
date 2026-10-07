@@ -51,6 +51,10 @@ that comes with it (tens of seconds, a llama-swap model swap).
 1. Phase 6 = purpose note per block, word budget per block, outline analyzer
    (propose blocks for an imported text), red thread + block analysis.
 2. Web app, server discovery and grammar check → backlog.
+3. Decisions A, B, C as recommended (2026-10-04). F: real texts later; WP3
+   runs on the templates first.
+4. WP3 runs before WP1/WP2 (writer's choice): the templates' guide notes
+   already give every block a purpose.
 
 ## Open decisions — ask the writer before the WP that needs them
 
@@ -232,6 +236,21 @@ first, report as Markdown. No UI.
 | Red thread | perturbation found at the right block | ≥ 70 % per kind except *hollow* (reported, no bar) |
 | Red thread | false alarms on *clean* | ≤ 20 % of clean texts with any finding |
 | Both | latency for a 1 500-word text, warm model | reported. Above 60 s needs the writer's OK |
+
+Fixed before the first run (2026-10-04), in addition to the table:
+
+- Segmentation runs on every text twice, **with headings and with headings
+  removed**. 22 template blocks start with an H2, which makes the first
+  variant easy. The pass needs **both** variants.
+- The red-thread check runs **with the template's planned parts and without**
+  (in the product only template documents have a plan). *missing* is only
+  scored with a plan. An intruder is pasted unnamed and without a purpose,
+  and *hollow* replaces the middle block's text with a fixed on-topic filler.
+- The pass counts the **strict** score: *swap* = a move proposed for a
+  swapped block, *intruder*/*hollow* = verdict "off" at that block, *missing*
+  = the removed part named, *clean* = no finding at all. Loose scores
+  ("weak" counts, or any verdict at the block) are reported, not used to pass.
+- Temperature 0.3, as for AI likeness.
 
 Models: gemma4-e2b-qat, gemma4-12b-qat, qwen38-27b (as configured in
 llama-swap). Thinking off unless a model only passes with it, then report both.
