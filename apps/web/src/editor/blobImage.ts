@@ -9,7 +9,7 @@ const PASSTHROUGH = ['alt', 'title', 'width', 'height'] as const;
  * would be a network call to a third-party server, and Glossly promises none.
  * The node stays in the document and exports unchanged.
  */
-export function isRemoteSrc(src: string | null | undefined): boolean {
+function isRemoteSrc(src: string | null | undefined): boolean {
   return !!src && /^(https?:)?\/\//i.test(src.trim());
 }
 

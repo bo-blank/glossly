@@ -40,7 +40,7 @@ export const DEFAULT_TEMPERATURE = 0.8;
  * answer held an e2b request for 29 s, and Hermes turns run 55–122 s), then
  * loads ours (e2b 2.4 s, qwen38-27b 5.3 s with the file cached).
  */
-export const STREAM_TIMING: StreamTiming = { loadTimeoutMs: 180_000, statusDelayMs: 1500, statusPollMs: 1000 };
+const STREAM_TIMING: StreamTiming = { loadTimeoutMs: 180_000, statusDelayMs: 1500, statusPollMs: 1000 };
 
 /**
  * Hard ceiling on generation. Without it a degenerate run has nothing to stop it: on

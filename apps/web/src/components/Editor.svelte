@@ -1,5 +1,5 @@
 <script>
-  import "./styles.scss";
+  import './styles.scss';
 
   import { get } from 'svelte/store';
   import { schemaExtensions } from '../editor/schemaExtensions';

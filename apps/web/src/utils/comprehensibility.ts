@@ -83,10 +83,10 @@ export function measure(text: string, language: TextLanguage): TextFeatures {
 // The four formulas validated for German.
 export const amstad = (f: TextFeatures) => 180 - f.sentenceLength - 58.5 * f.syllablesPerWord;
 /** 1. neue Wiener Sachtextformel: a school grade, 4 (easy) to 15 (very hard). */
-export const wienerSachtext = (f: TextFeatures) =>
+const wienerSachtext = (f: TextFeatures) =>
   0.1935 * f.wordsThreePlusSyllables + 0.1672 * f.sentenceLength + 0.1297 * f.wordsOverSixLetters - 0.0327 * f.wordsOneSyllable - 0.875;
 /** SMOG, German version: polysyllables per 30 sentences. */
-export const smogDe = (f: TextFeatures) => Math.sqrt((f.polysyllables * 30) / Math.max(1, f.sentences)) - 2;
+const smogDe = (f: TextFeatures) => Math.sqrt((f.polysyllables * 30) / Math.max(1, f.sentences)) - 2;
 /** LIX: under 30 very easy, 40 fiction, 50 non-fiction, over 60 specialist literature. */
 export const lix = (f: TextFeatures) => f.sentenceLength + f.wordsOverSixLetters;
 
@@ -95,7 +95,7 @@ export const fleschEnglish = (f: TextFeatures) => 206.835 - 1.015 * f.sentenceLe
 /** [value scoring 0, value scoring 10]; linear in between, clamped outside. */
 type Anchor = readonly [zero: number, ten: number];
 
-export const ANCHORS = {
+const ANCHORS = {
   formulas: {
     amstad: [-20, 90],
     wienerSachtext: [20, 2],

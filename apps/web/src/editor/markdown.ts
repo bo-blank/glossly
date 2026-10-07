@@ -250,7 +250,7 @@ function sectionsFromMarkers(state: any) {
   state.env.blockMarkers = marked;
 }
 
-export function markdownParser(schema: Schema): MarkdownParser {
+function markdownParser(schema: Schema): MarkdownParser {
   // html: true only so comments are recognised as such; neutralizeHtml makes
   // sure nothing is ever rendered as HTML.
   const tokenizer = new MarkdownIt('commonmark', { html: true }).enable('strikethrough');

@@ -10,7 +10,7 @@ const DEBOUNCE_MS = 300;
 // Headings/code aren't prose sentences - scoring them by word count is meaningless.
 const UNSCORED_NODE_TYPES = new Set(['codeBlock', 'heading']);
 
-export const readabilityHighlightKey = new PluginKey('readabilityHighlight');
+const readabilityHighlightKey = new PluginKey('readabilityHighlight');
 
 // A setting, so module state: every editor follows it, and the plugin's own
 // state rebuilds from it on the next meta transaction.

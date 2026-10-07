@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "svelte-check --threshold warning",
     "preview": "vite preview",
-    "format": "prettier --write .",
     "test": "vitest run"
   },
   "dependencies": {
@@ -39,8 +39,6 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "fake-indexeddb": "^6.2.5",
-    "prettier": "^3.0.0",
-    "prettier-plugin-svelte": "^3.0.0",
     "svelte-check": "^4.7.2",
     "typescript": "^5.9.3",
     "vite": "^8.0.0",
