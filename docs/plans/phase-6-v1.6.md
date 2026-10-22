@@ -288,8 +288,27 @@ texts. 27b's false alarms were all "weak", never "off", but the strict score
 counts any finding, and the rule is not loosened after the fact. Using d1 to
 filter false alarms was considered and set aside by the writer.
 
-Still open: the **held-out run** on 12b and 27b (e2b is out), reading and
-scoring the block names, and the final verdict here.
+**2026-10-22, held-out, 27b (segmentation and latency only):** the run was
+stopped by the writer during the red-thread check. Report:
+`reports/qwen38-27b-whole-held-out-segment.md`.
+
+| Measure (pass) | 27b |
+| --- | --- |
+| Segmentation F1 de / en, with headings (≥ 0.70) | 0.88 / 0.87 ✓ |
+| Segmentation F1 de / en, no headings (≥ 0.70) | 0.72 / 0.79 ✓ |
+| Invalid answers | 0 / 20 |
+| 1 500 words: segmentation / check | 33 s / 89 s (over 60 s, needs the writer's OK) |
+
+Still open: the held-out **red-thread check on 27b**, the full held-out run
+on **12b** (e2b is out), scoring the block names, and the final verdict here.
+To resume 27b without overwriting the segmentation report:
+
+```sh
+cd apps/web
+BENCH_MODEL=qwen38-27b BENCH_SPLIT=held-out BENCH_TASKS=check \
+  BENCH_OUT=scripts/structure-bench/reports/qwen38-27b-whole-held-out-check.md \
+  npx vitest run --config scripts/vitest.bench.config.ts bench-structure
+```
 
 ---
 
