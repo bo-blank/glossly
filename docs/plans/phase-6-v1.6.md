@@ -262,6 +262,35 @@ Schema-constrained JSON (`response_format`) as in the existing routes.
 like Phase 5 WP7. **Stop and show the writer the result** before WP4. They
 choose the analysis model (decision E) or end the AI part here.
 
+Reports are written to `apps/web/scripts/structure-bench/reports/` and
+committed, so the numbers outlive the session that produced them.
+
+### Result so far (tuning half only, not decisive)
+
+**2026-10-04:** first run, stopped by the writer because it took too long.
+Only e2b finished part of it and failed segmentation (held-out F1 ≈ 0.65 with
+headings, ≈ 0.30 without).
+
+**2026-10-18:** all three models, tuning cases only, strategy `whole`. The
+Markdown reports were lost with that session's temp folder; the numbers come
+from its log.
+
+| Measure (pass) | e2b | 12b | 27b |
+| --- | --- | --- | --- |
+| Segmentation F1 de / en, with headings (≥ 0.70) | 0.57 / 0.46 | 0.75 / 0.69 | 0.77 / 0.75 |
+| Segmentation F1 de / en, no headings (≥ 0.70) | 0.50 / 0.38 | 0.67 / 0.71 | 0.69 / 0.71 |
+| Swap / intruder / missing found (≥ 70 % each) | ✗ | ✓, except intruder without a plan (63 %) | ✓ |
+| False alarms on *clean* (≤ 20 %) | 50–62 % ✗ | 37 % ✗ | 25–37 % ✗ |
+| 1 500 words: segmentation / check | 5 s / 19 s | 24 s / 54 s | 47 s (no valid JSON) / 62 s |
+
+No model passes on tuning. The main failure is false alarms on unchanged
+texts. 27b's false alarms were all "weak", never "off", but the strict score
+counts any finding, and the rule is not loosened after the fact. Using d1 to
+filter false alarms was considered and set aside by the writer.
+
+Still open: the **held-out run** on 12b and 27b (e2b is out), reading and
+scoring the block names, and the final verdict here.
+
 ---
 
 ## WP4 — Analysis route and analysis model

@@ -9,11 +9,11 @@
 //   BENCH_ROUNDS default 1
 //   BENCH_SPLIT  tuning | held-out | all (default all)
 //   BENCH_TASKS  segment,check,latency (default all three)
-//   BENCH_OUT    default <tmpdir>/glossly-bench-structure-<model>.md
+//   BENCH_OUT    default structure-bench/reports/<model>-<strategy>-<split>.md (kept in the repo)
 
-import { writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { it } from 'vitest';
 import { detectLanguage } from '@glossly/shared';
 import { NO_THINKING } from '../../server/src/providers/openaiCompatible';
@@ -41,7 +41,8 @@ const TASKS = (process.env.BENCH_TASKS ?? 'segment,check,latency').split(',');
 //   label       one call labels every unit from a fixed list; code merges runs of one label
 //   pairs       one yes/no call per gap between two units
 const STRATEGY = process.env.BENCH_STRATEGY ?? 'whole';
-const OUT = process.env.BENCH_OUT ?? join(tmpdir(), `glossly-bench-structure-${MODEL}-${STRATEGY}.md`);
+const REPORTS = join(dirname(fileURLToPath(import.meta.url)), 'structure-bench', 'reports');
+const OUT = process.env.BENCH_OUT ?? join(REPORTS, `${MODEL}-${STRATEGY}-${SPLIT}.md`);
 
 const inSplit = (c: { doc: { split: string } }) => SPLIT === 'all' || c.doc.split === SPLIT;
 
@@ -553,6 +554,7 @@ async function runLatency(report: string[]) {
 }
 
 it('structure', async () => {
+  mkdirSync(dirname(OUT), { recursive: true });
   const report = [`# Structure bench — ${MODEL}, ${ROUNDS} round(s), split: ${SPLIT}, segmentation: ${STRATEGY}`, ''];
   if (TASKS.includes('latency')) await runLatency(report);
   if (TASKS.includes('segment')) await runSegment(report);
