@@ -262,6 +262,54 @@ Schema-constrained JSON (`response_format`) as in the existing routes.
 like Phase 5 WP7. **Stop and show the writer the result** before WP4. They
 choose the analysis model (decision E) or end the AI part here.
 
+Reports are written to `apps/web/scripts/structure-bench/reports/` and
+committed, so the numbers outlive the session that produced them.
+
+### Result so far (tuning half only, not decisive)
+
+**2026-10-04:** first run, stopped by the writer because it took too long.
+Only e2b finished part of it and failed segmentation (held-out F1 ≈ 0.65 with
+headings, ≈ 0.30 without).
+
+**2026-10-18:** all three models, tuning cases only, strategy `whole`. The
+Markdown reports were lost with that session's temp folder; the numbers come
+from its log.
+
+| Measure (pass) | e2b | 12b | 27b |
+| --- | --- | --- | --- |
+| Segmentation F1 de / en, with headings (≥ 0.70) | 0.57 / 0.46 | 0.75 / 0.69 | 0.77 / 0.75 |
+| Segmentation F1 de / en, no headings (≥ 0.70) | 0.50 / 0.38 | 0.67 / 0.71 | 0.69 / 0.71 |
+| Swap / intruder / missing found (≥ 70 % each) | ✗ | ✓, except intruder without a plan (63 %) | ✓ |
+| False alarms on *clean* (≤ 20 %) | 50–62 % ✗ | 37 % ✗ | 25–37 % ✗ |
+| 1 500 words: segmentation / check | 5 s / 19 s | 24 s / 54 s | 47 s (no valid JSON) / 62 s |
+
+No model passes on tuning. The main failure is false alarms on unchanged
+texts. 27b's false alarms were all "weak", never "off", but the strict score
+counts any finding, and the rule is not loosened after the fact. Using d1 to
+filter false alarms was considered and set aside by the writer.
+
+**2026-10-22, held-out, 27b (segmentation and latency only):** the run was
+stopped by the writer during the red-thread check. Report:
+`reports/qwen38-27b-whole-held-out-segment.md`.
+
+| Measure (pass) | 27b |
+| --- | --- |
+| Segmentation F1 de / en, with headings (≥ 0.70) | 0.88 / 0.87 ✓ |
+| Segmentation F1 de / en, no headings (≥ 0.70) | 0.72 / 0.79 ✓ |
+| Invalid answers | 0 / 20 |
+| 1 500 words: segmentation / check | 33 s / 89 s (over 60 s, needs the writer's OK) |
+
+Still open: the held-out **red-thread check on 27b**, the full held-out run
+on **12b** (e2b is out), scoring the block names, and the final verdict here.
+To resume 27b without overwriting the segmentation report:
+
+```sh
+cd apps/web
+BENCH_MODEL=qwen38-27b BENCH_SPLIT=held-out BENCH_TASKS=check \
+  BENCH_OUT=scripts/structure-bench/reports/qwen38-27b-whole-held-out-check.md \
+  npx vitest run --config scripts/vitest.bench.config.ts bench-structure
+```
+
 ---
 
 ## WP4 — Analysis route and analysis model
